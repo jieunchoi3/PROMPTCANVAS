@@ -2,6 +2,7 @@
 
 import { assetHeight } from "@/lib/canvas-geometry";
 import { ACCENT } from "@/lib/constants";
+import { attrValues, optionLabel } from "@/lib/attributes";
 import { cn } from "@/lib/utils";
 import type { Asset } from "@/lib/types";
 import { useCanvas } from "@/store/canvas-store";
@@ -18,15 +19,21 @@ export function AssetNode({
   const h = assetHeight(asset);
   const autoplay = useCanvas((s) => s.videoAutoplay);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
-  const label = assetTags
+  const attrLabel = filterAttrKeys
+    .flatMap((key) =>
+      attrValues(asset.attributes, key).map((value) => optionLabel(key, value)),
+    )[0];
+  const tagLabel = assetTags
     .filter((link) => link.asset_id === asset.id)
     .map((link) => tagById.get(link.tag_id))
     .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
     .filter((tag) => filterKinds.length === 0 || filterKinds.includes(tag.kind))
-    .map((tag) => tag.name)[0] ?? asset.title ?? "";
+    .map((tag) => tag.name)[0];
+  const label = attrLabel ?? tagLabel ?? asset.title ?? "";
 
   return (
     <div

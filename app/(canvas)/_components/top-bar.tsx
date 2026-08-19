@@ -4,6 +4,9 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, LayoutGrid, Search, Upload } from "lucide-react";
+import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
+import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,7 +21,7 @@ import { S } from "@/lib/strings";
 import { TOP_CATEGORY_KINDS, kindLabel } from "@/lib/tag-kinds";
 import { cn } from "@/lib/utils";
 import { TagManager } from "@/components/tag-manager";
-import { useCanvas } from "@/store/canvas-store";
+import { isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
 export function TopBar() {
   const pathname = usePathname();
@@ -26,10 +29,21 @@ export function TopBar() {
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
+  const filterSheetTypes = useCanvas((s) => s.filterSheetTypes);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const mode = useCanvas((s) => s.mode);
   const attrFilters = useCanvas((s) => s.attrFilters);
+  const createPromptSheet = useCanvas((s) => s.createPromptSheet);
   const current = boards.find((b) => b.id === boardId);
+  const peopleBoard = isPeopleBoard(current);
+  const wardrobeBoard = isWardrobeBoard(current);
+  const promptsBoard = isPromptsBoard(current);
+  const attrCategoryDefs = peopleBoard
+    ? CHARACTER_ATTRIBUTES
+    : wardrobeBoard
+      ? WARDROBE_ATTRIBUTES
+      : null;
 
   return (
     <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-[#0B0B0D] px-2 text-[13px]">
@@ -70,26 +84,66 @@ export function TopBar() {
       </button>
 
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-        {TOP_CATEGORY_KINDS.map((kind) => {
-          const on = filterKinds.includes(kind);
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => useCanvas.getState().toggleFilterKind(kind)}
-              className={cn(
-                "h-6 shrink-0 rounded-full px-2 text-[12px]",
-                on
-                  ? "bg-[#D9B382] text-[#0B0B0D]"
-                  : "bg-white/5 text-zinc-400 hover:bg-white/10",
-              )}
-            >
-              {kindLabel(kind)}
-            </button>
-          );
-        })}
-        <TagManager>{S.tagManage}</TagManager>
+        {promptsBoard
+          ? PROMPT_SHEET_TYPES.map((type) => {
+              const on = filterSheetTypes.includes(type.value);
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => useCanvas.getState().toggleFilterSheetType(type.value)}
+                  className={cn(
+                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
+                    on
+                      ? "bg-[#D9B382] text-[#0B0B0D]"
+                      : "bg-white/5 text-zinc-400 hover:bg-white/10",
+                  )}
+                >
+                  {type.label}
+                </button>
+              );
+            })
+          : attrCategoryDefs
+          ? attrCategoryDefs.map((attr) => {
+              const on = filterAttrKeys.includes(attr.key);
+              return (
+                <button
+                  key={attr.key}
+                  type="button"
+                  onClick={() => useCanvas.getState().toggleFilterAttrKey(attr.key)}
+                  className={cn(
+                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
+                    on
+                      ? "bg-[#D9B382] text-[#0B0B0D]"
+                      : "bg-white/5 text-zinc-400 hover:bg-white/10",
+                  )}
+                >
+                  {attr.label}
+                </button>
+              );
+            })
+          : TOP_CATEGORY_KINDS.map((kind) => {
+              const on = filterKinds.includes(kind);
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => useCanvas.getState().toggleFilterKind(kind)}
+                  className={cn(
+                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
+                    on
+                      ? "bg-[#D9B382] text-[#0B0B0D]"
+                      : "bg-white/5 text-zinc-400 hover:bg-white/10",
+                  )}
+                >
+                  {kindLabel(kind)}
+                </button>
+              );
+            })}
+        {!promptsBoard && !attrCategoryDefs ? <TagManager>{S.tagManage}</TagManager> : null}
         {(filterKinds.length > 0 ||
+          filterAttrKeys.length > 0 ||
+          filterSheetTypes.length > 0 ||
           filterTagIds.length > 0 ||
           Object.values(attrFilters).some((v) => v.length > 0)) ? (
           <button
@@ -120,26 +174,41 @@ export function TopBar() {
         <LayoutGrid className="size-4" />
       </Link>
 
-      <Button
-        size="sm"
-        className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-        onClick={() => inputRef.current?.click()}
-      >
-        <Upload className="size-3.5" />
-        {S.upload}
-      </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={ACCEPT_ATTR}
-        className="hidden"
-        onChange={(e) => {
-          const files = [...(e.target.files ?? [])];
-          e.target.value = "";
-          if (files.length) void ingestFiles(files, "center");
-        }}
-      />
+      {promptsBoard ? (
+        <Button
+          size="sm"
+          className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
+          onClick={() => {
+            const activeType = filterSheetTypes[0];
+            void createPromptSheet(activeType);
+          }}
+        >
+          {S.newPrompt}
+        </Button>
+      ) : (
+        <>
+          <Button
+            size="sm"
+            className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload className="size-3.5" />
+            {S.upload}
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={ACCEPT_ATTR}
+            className="hidden"
+            onChange={(e) => {
+              const files = [...(e.target.files ?? [])];
+              e.target.value = "";
+              if (files.length) void ingestFiles(files, "center");
+            }}
+          />
+        </>
+      )}
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { resolveBoardKind } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import type {
   Asset,
@@ -8,6 +9,7 @@ import type {
   Character,
   CharacterAsset,
   NewAssetInput,
+  PromptSheet,
   Tag,
   TagKind,
 } from "@/lib/types";
@@ -56,7 +58,7 @@ export function createSupabaseRepo(): LibraryRepo {
       if (data && data.length > 0) {
         const boards = (data as Board[]).map((b) => ({
           ...b,
-          kind: b.kind ?? "canvas",
+          kind: resolveBoardKind(b),
         }));
         if (!boards.some((b) => b.kind === "characters")) {
           const { data: people, error: pErr } = await supabase
@@ -85,6 +87,20 @@ export function createSupabaseRepo(): LibraryRepo {
             .single();
           if (wErr) throw wErr;
           boards.push(wardrobe as Board);
+        }
+        if (!boards.some((b) => b.kind === "prompts")) {
+          const { data: prompts, error: prErr } = await supabase
+            .from("boards")
+            .insert({
+              user_id,
+              name: S.promptsBoard,
+              emoji: S.promptsBoardEmoji,
+              kind: "prompts",
+            })
+            .select("*")
+            .single();
+          if (prErr) throw prErr;
+          boards.push(prompts as Board);
         }
         return boards;
       }
@@ -121,7 +137,18 @@ export function createSupabaseRepo(): LibraryRepo {
         .select("*")
         .single();
       if (wErr) throw wErr;
-      return [created as Board, people as Board, wardrobe as Board];
+      const { data: prompts, error: prErr } = await supabase
+        .from("boards")
+        .insert({
+          user_id,
+          name: S.promptsBoard,
+          emoji: S.promptsBoardEmoji,
+          kind: "prompts",
+        })
+        .select("*")
+        .single();
+      if (prErr) throw prErr;
+      return [created as Board, people as Board, wardrobe as Board, prompts as Board];
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {
       const user_id = await requireUserId();
@@ -358,6 +385,42 @@ export function createSupabaseRepo(): LibraryRepo {
           role: l.role,
         })),
       );
+      if (error) throw error;
+    },
+    async listPromptSheets(boardId) {
+      const { data, error } = await supabase
+        .from("prompt_sheets")
+        .select("*")
+        .eq("board_id", boardId)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PromptSheet[];
+    },
+    async upsertPromptSheet(input) {
+      const user_id = await requireUserId();
+      const stamp = new Date().toISOString();
+      const row = {
+        id: input.id,
+        user_id,
+        board_id: input.board_id,
+        title: input.title,
+        body: input.body,
+        negative_prompt: input.negative_prompt,
+        model: input.model,
+        notes: input.notes,
+        sheet_type: input.sheet_type,
+        updated_at: input.updated_at ?? stamp,
+      };
+      const { data, error } = await supabase
+        .from("prompt_sheets")
+        .upsert(row)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data as PromptSheet;
+    },
+    async deletePromptSheet(id) {
+      const { error } = await supabase.from("prompt_sheets").delete().eq("id", id);
       if (error) throw error;
     },
   };

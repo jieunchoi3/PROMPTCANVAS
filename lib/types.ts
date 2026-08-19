@@ -12,7 +12,7 @@ export type TagKind =
 
 export type TagSource = "user" | "ai";
 
-export type BoardKind = "canvas" | "characters" | "wardrobe";
+export type BoardKind = "canvas" | "characters" | "wardrobe" | "prompts";
 
 export type Board = {
   id: string;
@@ -96,6 +96,22 @@ export type CharacterAsset = {
   character_id: string;
   asset_id: string;
   role: CharacterRole;
+};
+
+export type PromptSheetType = "character" | "location" | "style" | "scene" | "other";
+
+export type PromptSheet = {
+  id: string;
+  user_id: string;
+  board_id: string;
+  title: string;
+  body: string;
+  negative_prompt: string;
+  model: string;
+  notes: string;
+  sheet_type: PromptSheetType;
+  created_at: string;
+  updated_at: string;
 };
 
 export type WardrobeKeyword = {

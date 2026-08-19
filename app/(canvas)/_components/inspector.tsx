@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters, attrMapToFilterValues } from "@/components/attribute-filters";
+import { ReverseAnalysisPanel } from "@/components/reverse-analysis-panel";
 import { TagPicker } from "@/components/tag-picker";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +26,10 @@ export function Inspector() {
   const setLightboxId = useCanvas((s) => s.setLightboxId);
   const toggleAssetAttr = useCanvas((s) => s.toggleAssetAttr);
   const setCharacterDialogOpen = useCanvas((s) => s.setCharacterDialogOpen);
+  const analyses = useCanvas((s) => s.analyses);
+  const analyzingAssetId = useCanvas((s) => s.analyzingAssetId);
+  const analyzeAsset = useCanvas((s) => s.analyzeAsset);
+  const analyzeWardrobeAsset = useCanvas((s) => s.analyzeWardrobeAsset);
   const [copied, setCopied] = useState(false);
 
   const asset = selectedIds.length === 1 ? assets.find((a) => a.id === selectedIds[0]) : undefined;
@@ -118,14 +123,20 @@ export function Inspector() {
       <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
         {S.inspectorReverse}
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7"
-        onClick={() => toast(S.inspectorReverseSoon)}
-      >
-        {S.inspectorReverse}
-      </Button>
+      {asset.kind === "image" && !peopleBoard && !wardrobeBoard ? (
+        <ReverseAnalysisPanel
+          assetId={asset.id}
+          analysis={analyses[asset.id] ?? null}
+          busy={analyzingAssetId === asset.id}
+          onRun={() => {
+            void analyzeAsset(asset.id)
+              .then(() => toast.success(S.analysisDone))
+              .catch(() => toast.error(S.analysisFailed));
+          }}
+        />
+      ) : (
+        <p className="text-[11px] text-zinc-500">{S.inspectorReverseSoon}</p>
+      )}
 
       {attrDefs.length > 0 ? (
         <>
@@ -168,9 +179,14 @@ export function Inspector() {
           variant="outline"
           size="sm"
           className="mt-4 h-7"
-          onClick={() => toast(S.wardrobeAiSoon)}
+          disabled={analyzingAssetId === asset.id || asset.kind !== "image"}
+          onClick={() => {
+            void analyzeWardrobeAsset(asset.id)
+              .then(() => toast.success(S.wardrobeAnalyzed))
+              .catch(() => toast.error(S.wardrobeAnalyzeFailed));
+          }}
         >
-          {S.analyzeWardrobe}
+          {analyzingAssetId === asset.id ? S.analyzing : S.analyzeWardrobe}
         </Button>
       ) : null}
 

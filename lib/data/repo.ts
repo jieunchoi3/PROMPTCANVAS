@@ -6,6 +6,7 @@ import type {
   Character,
   CharacterAsset,
   NewAssetInput,
+  PromptSheet,
   Tag,
   TagKind,
 } from "@/lib/types";
@@ -41,4 +42,12 @@ export type LibraryRepo = {
     characterId: string,
     links: { asset_id: string; role: CharacterAsset["role"] }[],
   ): Promise<void>;
+  listPromptSheets(boardId: string): Promise<PromptSheet[]>;
+  upsertPromptSheet(
+    input: Omit<PromptSheet, "user_id" | "created_at" | "updated_at"> & {
+      created_at?: string;
+      updated_at?: string;
+    },
+  ): Promise<PromptSheet>;
+  deletePromptSheet(id: string): Promise<void>;
 };

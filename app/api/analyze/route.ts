@@ -1,27 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { callGeminiJson } from "@/lib/gemini";
-import { wardrobeAnalysisSchema } from "@/lib/wardrobe-analysis-schema";
+import {
+  REVERSE_ANALYSIS_PROMPT,
+  filterValidKeywords,
+  reverseAnalysisSchema,
+} from "@/lib/reverse-analysis-schema";
 
 const requestSchema = z.object({
   assetId: z.string().uuid(),
   imageBase64: z.string().min(32),
   mimeType: z.string().optional(),
 });
-
-const WARDROBE_PROMPT = `You classify fashion/outfit inspiration images for a personal wardrobe library.
-Return strict JSON only:
-{
-  "summary_ko": "한 줄 한국어 설명",
-  "item_type": "top|bottom|dress|outer|set|bag|shoes|accessory",
-  "styling_vibe": ["y2k","street"],
-  "colors": ["black","pink"],
-  "materials": ["denim","leather"],
-  "details": ["pleated","sheer"],
-  "suggested_tags": ["casual","mini skirt"],
-  "keywords": [{ "term": "...", "kind": "item|style|color|material|detail", "why": "한국어" }]
-}
-Use English slugs for arrays. summary_ko and keywords[].why in Korean.`;
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -44,8 +34,12 @@ export async function POST(request: Request) {
     parsed.data.mimeType?.startsWith("image/") ? parsed.data.mimeType : "image/jpeg";
 
   try {
-    const { text, model } = await callGeminiJson(WARDROBE_PROMPT, { mimeType, data });
-    const analysis = wardrobeAnalysisSchema.parse(JSON.parse(text));
+    const { text, model } = await callGeminiJson(REVERSE_ANALYSIS_PROMPT, {
+      mimeType,
+      data,
+    });
+    const raw = reverseAnalysisSchema.parse(JSON.parse(text));
+    const analysis = filterValidKeywords(raw);
     return NextResponse.json({
       ok: true,
       assetId: parsed.data.assetId,
@@ -53,8 +47,8 @@ export async function POST(request: Request) {
       analysis,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "wardrobe_analyze_failed";
-    console.error("[analyze-wardrobe]", message);
+    const message = err instanceof Error ? err.message : "analyze_failed";
+    console.error("[analyze]", message);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

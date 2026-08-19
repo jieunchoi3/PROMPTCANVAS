@@ -5,9 +5,9 @@ import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters } from "@/components/attribute-filters";
 import { Button } from "@/components/ui/button";
 import { optionLabel } from "@/lib/attributes";
+import { resolveBoardKind } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import type { Board, Character } from "@/lib/types";
-import { isPeopleBoard } from "@/store/canvas-store";
 import { useCanvas } from "@/store/canvas-store";
 
 export function BoardSidepanel({ board }: { board: Board | undefined }) {
@@ -18,9 +18,10 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
   const characterAssets = useCanvas((s) => s.characterAssets);
   const selectCharacter = useCanvas((s) => s.selectCharacter);
   const deleteCharacter = useCanvas((s) => s.deleteCharacter);
-  const defs = isPeopleBoard(board) ? CHARACTER_ATTRIBUTES : WARDROBE_ATTRIBUTES;
+  const kind = resolveBoardKind(board);
+  const defs = kind === "characters" ? CHARACTER_ATTRIBUTES : WARDROBE_ATTRIBUTES;
 
-  if (!board || (board.kind !== "characters" && board.kind !== "wardrobe")) {
+  if (!board || (kind !== "characters" && kind !== "wardrobe")) {
     return null;
   }
 
@@ -28,10 +29,10 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
     <aside className="w-72 shrink-0 border-l border-white/10 bg-[#111113] p-3">
       <div className="mb-3">
         <div className="text-sm text-zinc-200">
-          {board.kind === "characters" ? S.peopleBoard : S.wardrobeBoard}
+          {kind === "characters" ? S.peopleBoard : S.wardrobeBoard}
         </div>
         <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
-          {board.kind === "characters" ? S.peopleHint : S.wardrobeHint}
+          {kind === "characters" ? S.peopleHint : S.wardrobeHint}
         </p>
       </div>
       <AttributeFilters defs={defs} values={attrFilters} onToggle={toggleAttrFilter} compact />
@@ -51,7 +52,7 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
         {S.clearFilters}
       </Button>
 
-      {board.kind === "characters" ? (
+      {kind === "characters" ? (
         <div className="mt-5">
           <div className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
             {S.savedCharacters}

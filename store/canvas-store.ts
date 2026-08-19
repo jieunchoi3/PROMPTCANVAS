@@ -3,8 +3,12 @@
 import { create } from "zustand";
 import { PERSIST_MS, UNDO_TOAST_MS } from "@/lib/constants";
 import { getRepo } from "@/lib/data/get-repo";
-import { ensureSeeded, ensureStarterTags } from "@/lib/seed-local";
-import { matchesAttributes, hasAttrFilters, toggleAttribute } from "@/lib/attributes";
+import { clearSeedAssets, ensureStarterTags } from "@/lib/seed-local";
+import { fetchImageBase64 } from "@/lib/image-base64";
+import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
+import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
+import { matchesAttributes, hasAttrFilters, toggleAttribute, attrValues } from "@/lib/attributes";
+import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import type {
@@ -18,6 +22,8 @@ import type {
   Character,
   CharacterAsset,
   HistoryEntry,
+  PromptSheet,
+  PromptSheetType,
   Rect,
   Tag,
   UploadItem,
@@ -34,6 +40,7 @@ type FieldPatch = {
 
 type CanvasState = {
   ready: boolean;
+  loadError: string | null;
   mode: "local" | "cloud";
   boards: Board[];
   boardId: string | null;
@@ -46,6 +53,7 @@ type CanvasState = {
   videoAutoplay: boolean;
   filterKinds: Tag["kind"][];
   filterTagIds: string[];
+  filterAttrKeys: string[];
   models: string[];
   uploads: UploadItem[];
   guides: AlignmentGuide[];
@@ -57,6 +65,11 @@ type CanvasState = {
   characterAssets: CharacterAsset[];
   attrFilters: Record<string, string[]>;
   characterDialogOpen: boolean;
+  promptSheets: PromptSheet[];
+  selectedPromptId: string | null;
+  filterSheetTypes: PromptSheetType[];
+  analyses: Record<string, ReverseAnalysis>;
+  analyzingAssetId: string | null;
   history: HistoryEntry[];
   future: HistoryEntry[];
   load: () => Promise<void>;
@@ -68,6 +81,7 @@ type CanvasState = {
   setGuides: (g: AlignmentGuide[]) => void;
   toggleVideoAutoplay: () => void;
   toggleFilterKind: (kind: Tag["kind"]) => void;
+  toggleFilterAttrKey: (key: string) => void;
   toggleFilterTag: (id: string) => void;
   clearFilters: () => void;
   select: (ids: string[], additive?: boolean) => void;
@@ -109,6 +123,25 @@ type CanvasState = {
   }) => Promise<void>;
   deleteCharacter: (id: string) => Promise<void>;
   selectCharacter: (id: string) => void;
+  selectPrompt: (id: string | null) => void;
+  toggleFilterSheetType: (type: PromptSheetType) => void;
+  createPromptSheet: (type?: PromptSheetType) => Promise<void>;
+  updatePromptSheet: (
+    id: string,
+    fields: Partial<
+      Pick<
+        PromptSheet,
+        "title" | "body" | "negative_prompt" | "model" | "notes" | "sheet_type"
+      >
+    >,
+  ) => Promise<void>;
+  deletePromptSheet: (id: string) => Promise<void>;
+  analyzeAsset: (assetId: string) => Promise<void>;
+  analyzeWardrobeAsset: (assetId: string) => Promise<void>;
+  applyAnalysis: (
+    assetId: string,
+    opts: { prompt: boolean; tags: boolean },
+  ) => Promise<void>;
 };
 
 const dirty = new Map<string, Partial<Asset>>();
@@ -137,6 +170,7 @@ function readCamera(boardId: string): Camera {
 
 export const useCanvas = create<CanvasState>((set, get) => ({
   ready: false,
+  loadError: null,
   mode: "local",
   boards: [],
   boardId: null,
@@ -149,6 +183,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   videoAutoplay: true,
   filterKinds: [],
   filterTagIds: [],
+  filterAttrKeys: [],
   models: [],
   uploads: [],
   guides: [],
@@ -160,49 +195,66 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   characterAssets: [],
   attrFilters: {},
   characterDialogOpen: false,
+  promptSheets: [],
+  selectedPromptId: null,
+  filterSheetTypes: [],
+  analyses: {},
+  analyzingAssetId: null,
   history: [],
   future: [],
 
   load: async () => {
-    const repo = getRepo();
-    const boards = await repo.listBoards();
-    const boardId = boards[0]?.id ?? null;
-    if (!boardId) {
-      set({ ready: true, mode: repo.mode, boards });
-      return;
+    set({ loadError: null });
+    try {
+      const repo = getRepo();
+      const boards = await repo.listBoards();
+      const boardId = boards[0]?.id ?? null;
+      if (!boardId) {
+        set({ ready: true, mode: repo.mode, boards, loadError: null });
+        return;
+      }
+      await clearSeedAssets(repo);
+      await ensureStarterTags(repo);
+      const [assets, tags, assetTags, models, characters, characterAssets, promptSheets] =
+        await Promise.all([
+          repo.listAssets(boardId),
+          repo.listTags(),
+          repo.listAssetTags(),
+          repo.listModels(),
+          repo.listCharacters(),
+          repo.listCharacterAssets(),
+          repo.listPromptSheets(boardId),
+        ]);
+      set({
+        ready: true,
+        mode: repo.mode,
+        boards,
+        boardId,
+        assets,
+        tags,
+        assetTags,
+        models,
+        characters,
+        characterAssets,
+        promptSheets,
+        selectedPromptId: null,
+        camera: readCamera(boardId),
+        loadError: null,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "load failed";
+      set({ ready: false, loadError: message });
+      console.error("[canvas] load failed", err);
     }
-    const seeded = await ensureSeeded(repo, boardId);
-    await ensureStarterTags(repo);
-    const [assets, tags, assetTags, models, characters, characterAssets] = await Promise.all([
-      repo.listAssets(boardId),
-      repo.listTags(),
-      repo.listAssetTags(),
-      repo.listModels(),
-      repo.listCharacters(),
-      repo.listCharacterAssets(),
-    ]);
-    void seeded;
-    set({
-      ready: true,
-      mode: repo.mode,
-      boards,
-      boardId,
-      assets,
-      tags,
-      assetTags,
-      models,
-      characters,
-      characterAssets,
-      camera: readCamera(boardId),
-    });
   },
 
   setBoard: async (id) => {
     const repo = getRepo();
-    const [assets, tags, assetTags] = await Promise.all([
+    const [assets, tags, assetTags, promptSheets] = await Promise.all([
       repo.listAssets(id),
       repo.listTags(),
       repo.listAssetTags(),
+      repo.listPromptSheets(id),
     ]);
     get().persistNow();
     set({
@@ -210,10 +262,14 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       assets,
       tags,
       assetTags,
+      promptSheets,
       selectedIds: [],
+      selectedPromptId: null,
       camera: readCamera(id),
       filterKinds: [],
       filterTagIds: [],
+      filterAttrKeys: [],
+      filterSheetTypes: [],
       attrFilters: {},
     });
   },
@@ -241,13 +297,22 @@ export const useCanvas = create<CanvasState>((set, get) => ({
         : [...cur, kind],
     });
   },
+  toggleFilterAttrKey: (key) => {
+    const cur = get().filterAttrKeys;
+    set({
+      filterAttrKeys: cur.includes(key)
+        ? cur.filter((x) => x !== key)
+        : [...cur, key],
+    });
+  },
   toggleFilterTag: (id) => {
     const cur = get().filterTagIds;
     set({
       filterTagIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
     });
   },
-  clearFilters: () => set({ filterKinds: [], filterTagIds: [] }),
+  clearFilters: () =>
+    set({ filterKinds: [], filterTagIds: [], filterAttrKeys: [], filterSheetTypes: [] }),
   select: (ids, additive = false) => {
     if (!additive) {
       set({ selectedIds: ids });
@@ -571,6 +636,148 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       .map((l) => l.asset_id);
     get().select(assetIds);
   },
+
+  selectPrompt: (id) => set({ selectedPromptId: id }),
+
+  toggleFilterSheetType: (type) => {
+    const cur = get().filterSheetTypes;
+    set({
+      filterSheetTypes: cur.includes(type)
+        ? cur.filter((x) => x !== type)
+        : [...cur, type],
+    });
+  },
+
+  createPromptSheet: async (type = "other") => {
+    const boardId = get().boardId;
+    if (!boardId) return;
+    const id = crypto.randomUUID();
+    const row = await getRepo().upsertPromptSheet({
+      id,
+      board_id: boardId,
+      title: "",
+      body: "",
+      negative_prompt: "",
+      model: "",
+      notes: "",
+      sheet_type: type,
+    });
+    set({
+      promptSheets: [row, ...get().promptSheets],
+      selectedPromptId: id,
+    });
+  },
+
+  updatePromptSheet: async (id, fields) => {
+    const current = get().promptSheets.find((p) => p.id === id);
+    if (!current) return;
+    const row = await getRepo().upsertPromptSheet({ ...current, ...fields });
+    set({
+      promptSheets: get().promptSheets.map((p) => (p.id === id ? row : p)),
+    });
+  },
+
+  deletePromptSheet: async (id) => {
+    await getRepo().deletePromptSheet(id);
+    set({
+      promptSheets: get().promptSheets.filter((p) => p.id !== id),
+      selectedPromptId: get().selectedPromptId === id ? null : get().selectedPromptId,
+    });
+  },
+
+  analyzeAsset: async (assetId) => {
+    const asset = get().assets.find((a) => a.id === assetId);
+    if (!asset || asset.kind !== "image") return;
+    set({ analyzingAssetId: assetId });
+    try {
+      const src = asset.thumbUrl || asset.url;
+      const { data, mimeType } = await fetchImageBase64(src);
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, imageBase64: data, mimeType }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        analysis?: ReverseAnalysis;
+        error?: string;
+      };
+      if (!res.ok || !json.analysis) {
+        throw new Error(json.error ?? "analyze_failed");
+      }
+      set({
+        analyses: { ...get().analyses, [assetId]: json.analysis },
+      });
+      await get().applyAnalysis(assetId, { prompt: true, tags: true });
+    } finally {
+      set({ analyzingAssetId: null });
+    }
+  },
+
+  analyzeWardrobeAsset: async (assetId) => {
+    const asset = get().assets.find((a) => a.id === assetId);
+    if (!asset || asset.kind !== "image") return;
+    set({ analyzingAssetId: assetId });
+    try {
+      const src = asset.thumbUrl || asset.url;
+      const { data, mimeType } = await fetchImageBase64(src);
+      const res = await fetch("/api/analyze-wardrobe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, imageBase64: data, mimeType }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        analysis?: WardrobeAnalysisInput;
+        error?: string;
+      };
+      if (!res.ok || !json.analysis) {
+        throw new Error(json.error ?? "wardrobe_analyze_failed");
+      }
+      const a = json.analysis;
+      const attributes: AttributeMap = {
+        item_type: a.item_type,
+        style_vibe: a.styling_vibe,
+        main_color: a.colors,
+        material: a.materials,
+      };
+      get().updateFields(assetId, {
+        title: asset.title || a.summary_ko,
+        attributes,
+      });
+      get().select([assetId]);
+      for (const tagName of a.suggested_tags.slice(0, 8)) {
+        await get().addTagToSelection(tagName, "free");
+      }
+    } finally {
+      set({ analyzingAssetId: null });
+    }
+  },
+
+  applyAnalysis: async (assetId, opts) => {
+    const analysis = get().analyses[assetId];
+    if (!analysis) return;
+    if (opts.prompt) {
+      get().updateFields(assetId, {
+        prompt: analysis.final_prompt,
+        negative_prompt: analysis.negative_prompt ?? "",
+      });
+    }
+    if (opts.tags) {
+      get().select([assetId]);
+      const tagPairs: { name: string; kind: Tag["kind"] }[] = [
+        ...analysis.suggested_tags.map((name) => ({ name, kind: "free" as const })),
+        ...analysis.keywords.map((kw) => ({ name: kw.term, kind: kw.kind })),
+      ];
+      const seen = new Set<string>();
+      for (const { name, kind } of tagPairs) {
+        const key = name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        await get().addTagToSelection(name.trim(), kind);
+      }
+    }
+  },
 }));
 
 type SetFn = (partial: Partial<CanvasState> | ((s: CanvasState) => Partial<CanvasState>)) => void;
@@ -703,16 +910,21 @@ export function filteredAssets(state: CanvasState): Asset[] {
       return state.filterTagIds.every((id) => tags?.has(id));
     });
   }
+  if (state.filterAttrKeys.length > 0) {
+    list = list.filter((asset) =>
+      state.filterAttrKeys.some((key) => attrValues(asset.attributes, key).length > 0),
+    );
+  }
   if (hasAttrFilters(state.attrFilters)) {
     list = list.filter((a) => matchesAttributes(a.attributes, state.attrFilters));
   }
   return list;
 }
 
-export function isPeopleBoard(board: Board | undefined): boolean {
-  return board?.kind === "characters";
-}
+export { isPeopleBoard, isWardrobeBoard, isPromptsBoard } from "@/lib/board-kind";
 
-export function isWardrobeBoard(board: Board | undefined): boolean {
-  return board?.kind === "wardrobe";
+export function filteredPromptSheets(state: CanvasState): PromptSheet[] {
+  const { filterSheetTypes } = state;
+  if (filterSheetTypes.length === 0) return state.promptSheets;
+  return state.promptSheets.filter((p) => filterSheetTypes.includes(p.sheet_type));
 }

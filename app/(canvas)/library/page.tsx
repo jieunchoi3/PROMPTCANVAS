@@ -1,10 +1,19 @@
 "use client";
 
-import { optionLabel } from "@/lib/attributes";
+import { PromptsBoard } from "../_components/prompts-board";
+import { optionLabel, attrValues } from "@/lib/attributes";
+import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { S } from "@/lib/strings";
 import { kindLabel } from "@/lib/tag-kinds";
 import { BoardSidepanel } from "@/components/board-sidepanel";
-import { filteredAssets, isPeopleBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import {
+  filteredAssets,
+  isPeopleBoard,
+  isPromptsBoard,
+  isWardrobeBoard,
+  useCanvas,
+} from "@/store/canvas-store";
 import { Inspector } from "../_components/inspector";
 import { BulkBar } from "../_components/bulk-bar";
 import { UndoToast } from "../_components/undo-toast";
@@ -14,6 +23,7 @@ export default function LibraryPage() {
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const selectedIds = useCanvas((s) => s.selectedIds);
   const select = useCanvas((s) => s.select);
@@ -22,6 +32,11 @@ export default function LibraryPage() {
   const boardId = useCanvas((s) => s.boardId);
   const attrFilters = useCanvas((s) => s.attrFilters);
   const currentBoard = boards.find((b) => b.id === boardId);
+
+  if (isPromptsBoard(currentBoard)) {
+    return <PromptsBoard />;
+  }
+
   const visible = filteredAssets({
     ...useCanvas.getState(),
     assets,
@@ -30,6 +45,14 @@ export default function LibraryPage() {
   });
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   const activeKindNames = filterKinds.map(kindLabel).join(" · ");
+  const attrDefs = isPeopleBoard(currentBoard)
+    ? CHARACTER_ATTRIBUTES
+    : isWardrobeBoard(currentBoard)
+      ? WARDROBE_ATTRIBUTES
+      : [];
+  const activeAttrKeyNames = filterAttrKeys
+    .map((key) => attrDefs.find((a) => a.key === key)?.label ?? key)
+    .join(" · ");
   const activeTagNames = tags
     .filter((t) => filterTagIds.includes(t.id))
     .map((t) => t.name)
@@ -37,7 +60,7 @@ export default function LibraryPage() {
   const activeAttrNames = Object.entries(attrFilters)
     .flatMap(([key, values]) => values.map((value) => optionLabel(key, value)))
     .join(" · ");
-  const activeNames = [activeKindNames, activeTagNames, activeAttrNames]
+  const activeNames = [activeKindNames, activeAttrKeyNames, activeTagNames, activeAttrNames]
     .filter(Boolean)
     .join(" · ");
 
@@ -49,7 +72,10 @@ export default function LibraryPage() {
         ) : null}
         {visible.length === 0 ? (
           <div className="grid h-full place-items-center text-sm text-zinc-500">
-            {filterKinds.length > 0 || filterTagIds.length > 0 || activeAttrNames
+            {filterKinds.length > 0 ||
+            filterAttrKeys.length > 0 ||
+            filterTagIds.length > 0 ||
+            activeAttrNames
               ? S.tagFilterEmpty
               : isPeopleBoard(currentBoard)
                 ? S.noCharacters
@@ -61,16 +87,19 @@ export default function LibraryPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">
             {visible.map((asset) => {
               const on = selectedIds.includes(asset.id);
-              const matchedKeywords = assetTags
-                .filter((link) => link.asset_id === asset.id)
-                .flatMap((link) => {
-                  const tag = tagById.get(link.tag_id);
-                  return tag && (filterKinds.length === 0 || filterKinds.includes(tag.kind))
-                    ? [tag]
-                    : [];
-                })
-                .map((tag) => tag.name)
-                .slice(0, 3);
+              const matchedKeywords = filterAttrKeys.length
+                ? filterAttrKeys.flatMap((key) =>
+                    attrValues(asset.attributes, key).map((value) => optionLabel(key, value)),
+                  )
+                : assetTags
+                    .filter((link) => link.asset_id === asset.id)
+                    .flatMap((link) => {
+                      const tag = tagById.get(link.tag_id);
+                      return tag && (filterKinds.length === 0 || filterKinds.includes(tag.kind))
+                        ? [tag]
+                        : [];
+                    })
+                    .map((tag) => tag.name);
               return (
                 <button
                   key={asset.id}
@@ -90,9 +119,7 @@ export default function LibraryPage() {
                   </div>
                   <div className="space-y-0.5 px-2 py-1.5">
                     <div className="truncate text-[11px] text-zinc-400">
-                      {matchedKeywords.length > 0
-                        ? matchedKeywords.join(" · ")
-                        : asset.title || "—"}
+                      {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
                     </div>
                     {Object.keys(asset.attributes).length > 0 ? (
                       <div className="flex flex-wrap gap-1">

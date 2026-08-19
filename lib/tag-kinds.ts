@@ -5,7 +5,7 @@ export const TAG_KINDS: { key: TagKind; label: string }[] = [
   { key: "colour", label: "색감" },
   { key: "camera", label: "카메라 앵글" },
   { key: "pose", label: "포즈" },
-  { key: "style", label: "전체 분위기" },
+  { key: "style", label: "무드" },
   { key: "subject", label: "피사체" },
   { key: "effect", label: "효과" },
   { key: "free", label: "기타" },
@@ -13,10 +13,10 @@ export const TAG_KINDS: { key: TagKind; label: string }[] = [
 
 export const TOP_CATEGORY_KINDS: TagKind[] = [
   "lighting",
-  "colour",
   "camera",
-  "pose",
+  "colour",
   "style",
+  "pose",
 ];
 
 export const STARTER_TAGS: { name: string; kind: TagKind }[] = [];

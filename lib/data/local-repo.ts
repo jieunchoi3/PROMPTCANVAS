@@ -1,4 +1,5 @@
 import { S } from "@/lib/strings";
+import { inferBoardKindPatch, resolveBoardKind } from "@/lib/board-kind";
 import type {
   Asset,
   AssetTag,
@@ -7,13 +8,14 @@ import type {
   Character,
   CharacterAsset,
   NewAssetInput,
+  PromptSheet,
   Tag,
   TagKind,
 } from "@/lib/types";
 import type { LibraryRepo } from "@/lib/data/repo";
 
 const DB_NAME = "prompt-canvas";
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const USER_KEY = "pc.localUserId";
 
 function nowIso(): string {
@@ -41,38 +43,45 @@ function txDone(tx: IDBTransaction): Promise<void> {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+function ensureStores(db: IDBDatabase): void {
+  if (!db.objectStoreNames.contains("boards")) {
+    db.createObjectStore("boards", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("assets")) {
+    db.createObjectStore("assets", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("tags")) {
+    db.createObjectStore("tags", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("asset_tags")) {
+    db.createObjectStore("asset_tags", { keyPath: ["asset_id", "tag_id"] });
+  }
+  if (!db.objectStoreNames.contains("blobs")) {
+    db.createObjectStore("blobs", { keyPath: "path" });
+  }
+  if (!db.objectStoreNames.contains("characters")) {
+    db.createObjectStore("characters", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("character_assets")) {
+    db.createObjectStore("character_assets", {
+      keyPath: ["character_id", "asset_id"],
+    });
+  }
+  if (!db.objectStoreNames.contains("prompt_sheets")) {
+    db.createObjectStore("prompt_sheets", { keyPath: "id" });
+  }
+}
+
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("boards")) {
-        db.createObjectStore("boards", { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains("assets")) {
-        db.createObjectStore("assets", { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains("tags")) {
-        db.createObjectStore("tags", { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains("asset_tags")) {
-        db.createObjectStore("asset_tags", { keyPath: ["asset_id", "tag_id"] });
-      }
-      if (!db.objectStoreNames.contains("blobs")) {
-        db.createObjectStore("blobs", { keyPath: "path" });
-      }
-      if (!db.objectStoreNames.contains("characters")) {
-        db.createObjectStore("characters", { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains("character_assets")) {
-        db.createObjectStore("character_assets", {
-          keyPath: ["character_id", "asset_id"],
-        });
-      }
-    };
+    req.onupgradeneeded = () => ensureStores(req.result);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error ?? new Error("idb open failed"));
+    req.onblocked = () => {
+      reject(new Error("indexedDB blocked — close other tabs with this site open"));
+    };
   });
   return dbPromise;
 }
@@ -99,7 +108,22 @@ async function hydrate(asset: Omit<Asset, "url" | "thumbUrl">): Promise<Asset> {
 }
 
 function hydrateBoard(board: Board): Board {
-  return { ...board, kind: board.kind ?? "canvas" };
+  return { ...board, kind: resolveBoardKind(board) };
+}
+
+async function repairBoardKinds(boards: Board[]): Promise<Board[]> {
+  const db = await openDb();
+  const tx = db.transaction("boards", "readwrite");
+  const store = tx.objectStore("boards");
+  const next = boards.map((board) => {
+    const patch = inferBoardKindPatch(board);
+    if (!patch) return board;
+    const fixed = { ...board, ...patch };
+    store.put(fixed);
+    return fixed;
+  });
+  await txDone(tx);
+  return next;
 }
 
 function localUserId(): string {
@@ -169,7 +193,22 @@ export function createLocalRepo(): LibraryRepo {
         await txDone(tx);
         next.push(wardrobe);
       }
-      return next.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      if (!next.some((b) => b.kind === "prompts")) {
+        const prompts: Board = {
+          id: uuid(),
+          user_id,
+          name: S.promptsBoard,
+          emoji: S.promptsBoardEmoji,
+          kind: "prompts",
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        };
+        const tx = db.transaction("boards", "readwrite");
+        tx.objectStore("boards").put(prompts);
+        await txDone(tx);
+        next.push(prompts);
+      }
+      return repairBoardKinds(next.sort((a, b) => a.created_at.localeCompare(b.created_at)));
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {
       const db = await openDb();
@@ -464,6 +503,45 @@ export function createLocalRepo(): LibraryRepo {
           role: link.role,
         });
       }
+      await txDone(tx);
+    },
+    async listPromptSheets(boardId) {
+      const db = await openDb();
+      const rows = await request<PromptSheet[]>(
+        db.transaction("prompt_sheets").objectStore("prompt_sheets").getAll(),
+      );
+      return rows
+        .filter((row) => row.board_id === boardId)
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    },
+    async upsertPromptSheet(input) {
+      const db = await openDb();
+      const existing = await request<PromptSheet | undefined>(
+        db.transaction("prompt_sheets").objectStore("prompt_sheets").get(input.id),
+      );
+      const stamp = nowIso();
+      const row: PromptSheet = {
+        id: input.id,
+        user_id: localUserId(),
+        board_id: input.board_id,
+        title: input.title,
+        body: input.body,
+        negative_prompt: input.negative_prompt,
+        model: input.model,
+        notes: input.notes,
+        sheet_type: input.sheet_type,
+        created_at: existing?.created_at ?? input.created_at ?? stamp,
+        updated_at: input.updated_at ?? stamp,
+      };
+      const tx = db.transaction("prompt_sheets", "readwrite");
+      tx.objectStore("prompt_sheets").put(row);
+      await txDone(tx);
+      return row;
+    },
+    async deletePromptSheet(id) {
+      const db = await openDb();
+      const tx = db.transaction("prompt_sheets", "readwrite");
+      tx.objectStore("prompt_sheets").delete(id);
       await txDone(tx);
     },
   };

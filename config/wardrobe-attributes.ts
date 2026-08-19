@@ -28,7 +28,7 @@ export const WARDROBE_ATTRIBUTES: readonly WardrobeAttrDef[] = [
   },
   {
     key: "style_vibe",
-    label: "갬성",
+    label: "감성",
     multi: true,
     options: [
       { value: "y2k", label: "Y2K" },

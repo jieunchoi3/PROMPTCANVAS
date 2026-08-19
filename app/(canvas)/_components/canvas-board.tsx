@@ -12,7 +12,7 @@ import {
 import { ingestFiles, ingestUrl } from "@/lib/ingest";
 import { isMod, isTypingTarget, looksLikeUrl } from "@/lib/env";
 import { S } from "@/lib/strings";
-import { filteredAssets, useCanvas } from "@/store/canvas-store";
+import { filteredAssets, isPeopleBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 import { AssetNode } from "./asset-node";
 import { BulkBar } from "./bulk-bar";
 import { CanvasViewport } from "./canvas-viewport";
@@ -139,7 +139,17 @@ export function CanvasBoard() {
         return;
       }
       if (e.key === "r" || e.key === "R") {
-        toast(S.inspectorReverseSoon);
+        const state = useCanvas.getState();
+        if (state.selectedIds.length === 1) {
+          const asset = state.assets.find((a) => a.id === state.selectedIds[0]);
+          const board = state.boards.find((b) => b.id === state.boardId);
+          if (asset?.kind === "image" && board && !isPeopleBoard(board) && !isWardrobeBoard(board)) {
+            void state
+              .analyzeAsset(asset.id)
+              .then(() => toast.success(S.analysisDone))
+              .catch(() => toast.error(S.analysisFailed));
+          }
+        }
         return;
       }
       if (e.key === "e" || e.key === "E") {
