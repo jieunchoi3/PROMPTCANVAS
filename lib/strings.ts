@@ -13,6 +13,7 @@ export const S = {
   needAuth: "계속하려면 로그인해 주세요.",
   loadError: "앱을 불러오지 못했어요.",
   loadRetry: "다시 시도",
+  loading: "불러오는 중…",
 
   searchPlaceholder: "검색 또는 명령…",
   upload: "업로드",
@@ -21,9 +22,10 @@ export const S = {
   glossary: "용어집",
   glossarySoon: "용어집은 2단계에서 열립니다.",
 
-  filterMore: (n: number) => `+${n}`,
+  addCustomTab: "항목 추가",
+  addCustomTabPh: "새 필터 이름",
   localMode: "로컬 모드 — 이 브라우저에만 저장됩니다",
-  cloudMode: "클라우드에 저장 중",
+  cloudMode: "공유 라이브러리 — 누구나 볼 수 있어요",
 
   peopleBoard: "인물",
   peopleBoardEmoji: "✧",
@@ -42,6 +44,9 @@ export const S = {
   promptNotes: "메모",
   promptNotesPh: "언제 쓰는지, 변수 설명 등",
   promptType: "유형",
+  promptPreview: "예시 이미지",
+  promptPreviewHint: "결과물 참고용 사진 1장",
+  promptPreviewRemove: "이미지 제거",
   noPrompts: "아직 저장한 프롬프트가 없어요.",
   promptSaved: "프롬프트를 저장했어요",
   deletePrompt: "프롬프트 삭제",

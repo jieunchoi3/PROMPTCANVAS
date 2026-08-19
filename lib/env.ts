@@ -1,3 +1,5 @@
+import { PROMPT_CANVAS_SHARED_USER_ID } from "@/lib/supabase/config";
+
 export function isCloudEnabled(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -60,4 +62,8 @@ export function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+export function sharedUserId(): string {
+  return PROMPT_CANVAS_SHARED_USER_ID;
 }

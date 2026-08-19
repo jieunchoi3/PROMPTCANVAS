@@ -3,6 +3,7 @@
 import { assetHeight } from "@/lib/canvas-geometry";
 import { ACCENT } from "@/lib/constants";
 import { attrValues, optionLabel } from "@/lib/attributes";
+import { tagMatchesTopTab } from "@/lib/top-categories";
 import { cn } from "@/lib/utils";
 import type { Asset } from "@/lib/types";
 import { useCanvas } from "@/store/canvas-store";
@@ -19,6 +20,7 @@ export function AssetNode({
   const h = assetHeight(asset);
   const autoplay = useCanvas((s) => s.videoAutoplay);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
   const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
@@ -31,7 +33,10 @@ export function AssetNode({
     .filter((link) => link.asset_id === asset.id)
     .map((link) => tagById.get(link.tag_id))
     .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
-    .filter((tag) => filterKinds.length === 0 || filterKinds.includes(tag.kind))
+    .filter((tag) => {
+      const activeTabs = [...filterKinds, ...filterCustomTabs];
+      return activeTabs.length === 0 || activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId));
+    })
     .map((tag) => tag.name)[0];
   const label = attrLabel ?? tagLabel ?? asset.title ?? "";
 

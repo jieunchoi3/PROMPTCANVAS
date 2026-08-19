@@ -62,6 +62,7 @@ export type Tag = {
   user_id: string;
   name: string;
   kind: TagKind;
+  category_key: string | null;
   color: string;
   use_count: number;
 };
@@ -110,6 +111,8 @@ export type PromptSheet = {
   model: string;
   notes: string;
   sheet_type: PromptSheetType;
+  preview_path: string | null;
+  previewUrl?: string;
   created_at: string;
   updated_at: string;
 };

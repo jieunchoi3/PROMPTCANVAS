@@ -60,6 +60,16 @@ export function PromptsBoard() {
                       className="w-full text-left"
                       onClick={() => selectPrompt(prompt.id)}
                     >
+                      {prompt.previewUrl ? (
+                        <div className="mb-2 overflow-hidden rounded-md border border-white/10 bg-black/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={prompt.previewUrl}
+                            alt=""
+                            className="aspect-video w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
                       <div className="mb-1 flex items-center gap-2">
                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-400">
                           {sheetTypeLabel(prompt.sheet_type)}

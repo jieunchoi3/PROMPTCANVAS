@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Copy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,9 @@ import { useCanvas } from "@/store/canvas-store";
 
 export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const updatePromptSheet = useCanvas((s) => s.updatePromptSheet);
+  const uploadPromptPreview = useCanvas((s) => s.uploadPromptPreview);
   const models = useCanvas((s) => s.models);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [negative, setNegative] = useState("");
@@ -96,6 +98,50 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           placeholder={S.promptTitlePh}
           className="mb-3 h-8 border-white/10 bg-black/20"
         />
+
+        <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+          {S.promptPreview}
+        </div>
+        <div className="mb-3">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadPromptPreview(promptId, file);
+              e.target.value = "";
+            }}
+          />
+          {prompt.previewUrl ? (
+            <div className="relative overflow-hidden rounded-md border border-white/10 bg-black/30">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={prompt.previewUrl}
+                alt=""
+                className="aspect-video w-full object-cover"
+              />
+              <button
+                type="button"
+                className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-white"
+                aria-label={S.promptPreviewRemove}
+                onClick={() => void uploadPromptPreview(promptId, null)}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex w-full flex-col items-center gap-1 rounded-md border border-dashed border-white/15 bg-black/20 px-3 py-5 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+            >
+              <ImagePlus className="size-5" />
+              <span className="text-[11px]">{S.promptPreviewHint}</span>
+            </button>
+          )}
+        </div>
 
         <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
           {S.promptBody}

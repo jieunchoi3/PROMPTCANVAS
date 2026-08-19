@@ -1,5 +1,11 @@
-import { S } from "@/lib/strings";
+import {
+  readCustomTopCategories,
+  writeCustomTopCategories,
+  type CustomTopCategory,
+} from "@/lib/top-categories";
 import { inferBoardKindPatch, resolveBoardKind } from "@/lib/board-kind";
+import { S } from "@/lib/strings";
+import { makeImageThumb } from "@/lib/thumbnail";
 import type {
   Asset,
   AssetTag,
@@ -72,16 +78,63 @@ function ensureStores(db: IDBDatabase): void {
   }
 }
 
-function openDb(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+const REQUIRED_STORES = [
+  "boards",
+  "assets",
+  "tags",
+  "asset_tags",
+  "blobs",
+  "characters",
+  "character_assets",
+  "prompt_sheets",
+] as const;
+
+function missingStores(db: IDBDatabase): string[] {
+  return REQUIRED_STORES.filter((name) => !db.objectStoreNames.contains(name));
+}
+
+function deleteDb(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error("idb delete failed"));
+    req.onblocked = () => {
+      reject(new Error("indexedDB blocked — close other tabs with this site open"));
+    };
+  });
+}
+
+function openDbOnce(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => ensureStores(req.result);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      const missing = missingStores(db);
+      if (missing.length > 0) {
+        db.close();
+        reject(new Error(`missing stores: ${missing.join(", ")}`));
+        return;
+      }
+      resolve(db);
+    };
     req.onerror = () => reject(req.error ?? new Error("idb open failed"));
     req.onblocked = () => {
       reject(new Error("indexedDB blocked — close other tabs with this site open"));
     };
+  });
+}
+
+function openDb(): Promise<IDBDatabase> {
+  if (dbPromise) return dbPromise;
+  dbPromise = openDbOnce().catch(async (err) => {
+    dbPromise = null;
+    if (err instanceof Error && err.message.startsWith("missing stores:")) {
+      await deleteDb();
+      dbPromise = openDbOnce();
+      return dbPromise;
+    }
+    throw err;
   });
   return dbPromise;
 }
@@ -99,6 +152,17 @@ async function blobUrl(path: string): Promise<string> {
   const url = URL.createObjectURL(row.blob);
   urlCache.set(path, url);
   return url;
+}
+
+async function hydratePromptSheet(
+  row: Omit<PromptSheet, "previewUrl">,
+): Promise<PromptSheet> {
+  const previewUrl = row.preview_path ? await blobUrl(row.preview_path) : "";
+  return { ...row, previewUrl: previewUrl || undefined };
+}
+
+function promptPreviewPath(promptId: string): string {
+  return `prompts/${promptId}/preview.webp`;
 }
 
 async function hydrate(asset: Omit<Asset, "url" | "thumbUrl">): Promise<Asset> {
@@ -239,7 +303,10 @@ export function createLocalRepo(): LibraryRepo {
     },
     async listTags() {
       const db = await openDb();
-      return request<Tag[]>(db.transaction("tags").objectStore("tags").getAll());
+      const rows = await request<Tag[]>(
+        db.transaction("tags").objectStore("tags").getAll(),
+      );
+      return rows.map((tag) => ({ ...tag, category_key: tag.category_key ?? null }));
     },
     async listAssetTags() {
       const db = await openDb();
@@ -335,14 +402,16 @@ export function createLocalRepo(): LibraryRepo {
     async restore(ids) {
       await this.updateAssets(ids.map((id) => ({ id, fields: { deleted_at: null } })));
     },
-    async upsertTag(name, kind: TagKind = "free") {
+    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null) {
       const trimmed = name.trim();
       const db = await openDb();
       const all = await request<Tag[]>(
         db.transaction("tags").objectStore("tags").getAll(),
       );
       const existing = all.find(
-        (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
+        (t) =>
+          t.name.toLowerCase() === trimmed.toLowerCase() &&
+          (t.category_key ?? null) === categoryKey,
       );
       if (existing) return existing;
       const tag: Tag = {
@@ -350,6 +419,7 @@ export function createLocalRepo(): LibraryRepo {
         user_id: localUserId(),
         name: trimmed,
         kind,
+        category_key: categoryKey,
         color: "#D9B382",
         use_count: 0,
       };
@@ -507,20 +577,24 @@ export function createLocalRepo(): LibraryRepo {
     },
     async listPromptSheets(boardId) {
       const db = await openDb();
-      const rows = await request<PromptSheet[]>(
+      const rows = await request<Omit<PromptSheet, "previewUrl">[]>(
         db.transaction("prompt_sheets").objectStore("prompt_sheets").getAll(),
       );
-      return rows
+      const filtered = rows
         .filter((row) => row.board_id === boardId)
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      return Promise.all(filtered.map((row) => hydratePromptSheet({
+        ...row,
+        preview_path: row.preview_path ?? null,
+      })));
     },
     async upsertPromptSheet(input) {
       const db = await openDb();
-      const existing = await request<PromptSheet | undefined>(
+      const existing = await request<Omit<PromptSheet, "previewUrl"> | undefined>(
         db.transaction("prompt_sheets").objectStore("prompt_sheets").get(input.id),
       );
       const stamp = nowIso();
-      const row: PromptSheet = {
+      const row: Omit<PromptSheet, "previewUrl"> = {
         id: input.id,
         user_id: localUserId(),
         board_id: input.board_id,
@@ -530,19 +604,58 @@ export function createLocalRepo(): LibraryRepo {
         model: input.model,
         notes: input.notes,
         sheet_type: input.sheet_type,
+        preview_path: input.preview_path ?? existing?.preview_path ?? null,
         created_at: existing?.created_at ?? input.created_at ?? stamp,
         updated_at: input.updated_at ?? stamp,
       };
       const tx = db.transaction("prompt_sheets", "readwrite");
       tx.objectStore("prompt_sheets").put(row);
       await txDone(tx);
-      return row;
+      return hydratePromptSheet(row);
+    },
+    async setPromptPreview(promptId, file) {
+      const db = await openDb();
+      const existing = await request<Omit<PromptSheet, "previewUrl"> | undefined>(
+        db.transaction("prompt_sheets").objectStore("prompt_sheets").get(promptId),
+      );
+      if (!existing) throw new Error("prompt not found");
+      const path = promptPreviewPath(promptId);
+      if (!file) {
+        const tx = db.transaction(["prompt_sheets", "blobs"], "readwrite");
+        tx.objectStore("blobs").delete(path);
+        const row = { ...existing, preview_path: null, updated_at: nowIso() };
+        tx.objectStore("prompt_sheets").put(row);
+        await txDone(tx);
+        urlCache.delete(path);
+        return hydratePromptSheet(row);
+      }
+      const { blob } = await makeImageThumb(file);
+      const tx = db.transaction(["prompt_sheets", "blobs"], "readwrite");
+      tx.objectStore("blobs").put({ path, blob });
+      const row = { ...existing, preview_path: path, updated_at: nowIso() };
+      tx.objectStore("prompt_sheets").put(row);
+      await txDone(tx);
+      urlCache.delete(path);
+      return hydratePromptSheet(row);
     },
     async deletePromptSheet(id) {
       const db = await openDb();
-      const tx = db.transaction("prompt_sheets", "readwrite");
+      const existing = await request<Omit<PromptSheet, "previewUrl"> | undefined>(
+        db.transaction("prompt_sheets").objectStore("prompt_sheets").get(id),
+      );
+      const tx = db.transaction(["prompt_sheets", "blobs"], "readwrite");
+      if (existing?.preview_path) {
+        tx.objectStore("blobs").delete(existing.preview_path);
+        urlCache.delete(existing.preview_path);
+      }
       tx.objectStore("prompt_sheets").delete(id);
       await txDone(tx);
+    },
+    async listCustomTopCategories() {
+      return readCustomTopCategories();
+    },
+    async saveCustomTopCategories(categories: CustomTopCategory[]) {
+      writeCustomTopCategories(categories);
     },
   };
 }

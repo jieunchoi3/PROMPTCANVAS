@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
+import { PROMPT_CANVAS_SCHEMA } from "@/lib/supabase/config";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const supabase = createServerClient(supabaseUrl(), supabaseAnonKey(), {
+    db: { schema: PROMPT_CANVAS_SCHEMA },
     cookies: {
       getAll() {
         return request.cookies.getAll();

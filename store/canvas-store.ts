@@ -9,6 +9,11 @@ import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
 import { matchesAttributes, hasAttrFilters, toggleAttribute, attrValues } from "@/lib/attributes";
 import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
+import {
+  customCategoryId,
+  tagMatchesTopTab,
+  type CustomTopCategory,
+} from "@/lib/top-categories";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import type {
@@ -52,6 +57,8 @@ type CanvasState = {
   spaceDown: boolean;
   videoAutoplay: boolean;
   filterKinds: Tag["kind"][];
+  filterCustomTabs: string[];
+  customTopCategories: CustomTopCategory[];
   filterTagIds: string[];
   filterAttrKeys: string[];
   models: string[];
@@ -81,6 +88,8 @@ type CanvasState = {
   setGuides: (g: AlignmentGuide[]) => void;
   toggleVideoAutoplay: () => void;
   toggleFilterKind: (kind: Tag["kind"]) => void;
+  toggleFilterCustomTab: (tabId: string) => void;
+  addCustomTopCategory: (label: string) => Promise<void>;
   toggleFilterAttrKey: (key: string) => void;
   toggleFilterTag: (id: string) => void;
   clearFilters: () => void;
@@ -96,9 +105,13 @@ type CanvasState = {
   commitHistory: (entry: HistoryEntry) => void;
   persistNow: () => void;
   updateFields: (id: string, fields: FieldPatch, recordHistory?: boolean) => void;
-  addTagToSelection: (name: string, kind?: Tag["kind"]) => Promise<void>;
+  addTagToSelection: (name: string, kind?: Tag["kind"], categoryKey?: string | null) => Promise<void>;
   toggleTagOnSelection: (tagId: string) => Promise<void>;
-  createTag: (name: string, kind: Tag["kind"]) => Promise<Tag | null>;
+  createTag: (
+    name: string,
+    kind: Tag["kind"],
+    categoryKey?: string | null,
+  ) => Promise<Tag | null>;
   renameTag: (id: string, name: string) => Promise<boolean>;
   setTagKind: (id: string, kind: Tag["kind"]) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
@@ -136,6 +149,7 @@ type CanvasState = {
     >,
   ) => Promise<void>;
   deletePromptSheet: (id: string) => Promise<void>;
+  uploadPromptPreview: (id: string, file: File | null) => Promise<void>;
   analyzeAsset: (assetId: string) => Promise<void>;
   analyzeWardrobeAsset: (assetId: string) => Promise<void>;
   applyAnalysis: (
@@ -182,6 +196,8 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   spaceDown: false,
   videoAutoplay: true,
   filterKinds: [],
+  filterCustomTabs: [],
+  customTopCategories: [],
   filterTagIds: [],
   filterAttrKeys: [],
   models: [],
@@ -215,7 +231,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       }
       await clearSeedAssets(repo);
       await ensureStarterTags(repo);
-      const [assets, tags, assetTags, models, characters, characterAssets, promptSheets] =
+      const [assets, tags, assetTags, models, characters, characterAssets, promptSheets, customTopCategories] =
         await Promise.all([
           repo.listAssets(boardId),
           repo.listTags(),
@@ -224,6 +240,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
           repo.listCharacters(),
           repo.listCharacterAssets(),
           repo.listPromptSheets(boardId),
+          repo.listCustomTopCategories(),
         ]);
       set({
         ready: true,
@@ -237,6 +254,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
         characters,
         characterAssets,
         promptSheets,
+        customTopCategories,
         selectedPromptId: null,
         camera: readCamera(boardId),
         loadError: null,
@@ -267,6 +285,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       selectedPromptId: null,
       camera: readCamera(id),
       filterKinds: [],
+      filterCustomTabs: [],
       filterTagIds: [],
       filterAttrKeys: [],
       filterSheetTypes: [],
@@ -297,6 +316,24 @@ export const useCanvas = create<CanvasState>((set, get) => ({
         : [...cur, kind],
     });
   },
+  toggleFilterCustomTab: (tabId) => {
+    const cur = get().filterCustomTabs;
+    set({
+      filterCustomTabs: cur.includes(tabId)
+        ? cur.filter((x) => x !== tabId)
+        : [...cur, tabId],
+    });
+  },
+  addCustomTopCategory: async (label) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const id = customCategoryId(trimmed);
+    const cur = get().customTopCategories;
+    if (cur.some((c) => c.id === id)) return;
+    const next = [...cur, { id, label: trimmed }];
+    await getRepo().saveCustomTopCategories(next);
+    set({ customTopCategories: next });
+  },
   toggleFilterAttrKey: (key) => {
     const cur = get().filterAttrKeys;
     set({
@@ -312,7 +349,13 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     });
   },
   clearFilters: () =>
-    set({ filterKinds: [], filterTagIds: [], filterAttrKeys: [], filterSheetTypes: [] }),
+    set({
+      filterKinds: [],
+      filterCustomTabs: [],
+      filterTagIds: [],
+      filterAttrKeys: [],
+      filterSheetTypes: [],
+    }),
   select: (ids, additive = false) => {
     if (!additive) {
       set({ selectedIds: ids });
@@ -393,11 +436,11 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     }
   },
 
-  addTagToSelection: async (name, kind = "free") => {
+  addTagToSelection: async (name, kind = "free", categoryKey = null) => {
     const ids = get().selectedIds;
     if (ids.length === 0 || !name.trim()) return;
     const repo = getRepo();
-    const tag = await repo.upsertTag(name, kind);
+    const tag = await repo.upsertTag(name, kind, categoryKey);
     const missing = ids.filter(
       (id) => !get().assetTags.some((at) => at.asset_id === id && at.tag_id === tag.id),
     );
@@ -461,11 +504,11 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     get().commitHistory({ kind: "tag-add", assetIds: missing, tagId });
   },
 
-  createTag: async (name, kind) => {
+  createTag: async (name, kind, categoryKey = null) => {
     const trimmed = name.trim();
     if (!trimmed) return null;
     try {
-      const tag = await getRepo().upsertTag(trimmed, kind);
+      const tag = await getRepo().upsertTag(trimmed, kind, categoryKey);
       if (!get().tags.some((t) => t.id === tag.id)) {
         set({ tags: [...get().tags, tag] });
       }
@@ -661,6 +704,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       model: "",
       notes: "",
       sheet_type: type,
+      preview_path: null,
     });
     set({
       promptSheets: [row, ...get().promptSheets],
@@ -682,6 +726,13 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     set({
       promptSheets: get().promptSheets.filter((p) => p.id !== id),
       selectedPromptId: get().selectedPromptId === id ? null : get().selectedPromptId,
+    });
+  },
+
+  uploadPromptPreview: async (id, file) => {
+    const row = await getRepo().setPromptPreview(id, file);
+    set({
+      promptSheets: get().promptSheets.map((p) => (p.id === id ? row : p)),
     });
   },
 
@@ -883,19 +934,23 @@ async function applyForward(entry: HistoryEntry, set: SetFn, get: GetFn) {
 
 export function filteredAssets(state: CanvasState): Asset[] {
   let list = state.assets;
-  if (state.filterKinds.length > 0) {
+  if (state.filterKinds.length > 0 || state.filterCustomTabs.length > 0) {
     const tagById = new Map(state.tags.map((tag) => [tag.id, tag]));
-    const byAssetKinds = new Map<string, Set<Tag["kind"]>>();
+    const byAssetTags = new Map<string, Tag[]>();
     for (const at of state.assetTags) {
       const tag = tagById.get(at.tag_id);
       if (!tag) continue;
-      const set = byAssetKinds.get(at.asset_id) ?? new Set<Tag["kind"]>();
-      set.add(tag.kind);
-      byAssetKinds.set(at.asset_id, set);
+      const arr = byAssetTags.get(at.asset_id) ?? [];
+      arr.push(tag);
+      byAssetTags.set(at.asset_id, arr);
     }
+    const activeTabs = [
+      ...state.filterKinds,
+      ...state.filterCustomTabs,
+    ];
     list = list.filter((asset) => {
-      const kinds = byAssetKinds.get(asset.id);
-      return state.filterKinds.some((kind) => kinds?.has(kind));
+      const tags = byAssetTags.get(asset.id) ?? [];
+      return activeTabs.some((tabId) => tags.some((tag) => tagMatchesTopTab(tag, tabId)));
     });
   }
   if (state.filterTagIds.length > 0) {

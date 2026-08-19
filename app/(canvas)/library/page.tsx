@@ -6,6 +6,7 @@ import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { S } from "@/lib/strings";
 import { kindLabel } from "@/lib/tag-kinds";
+import { customCategoryLabel, tagMatchesTopTab } from "@/lib/top-categories";
 import { BoardSidepanel } from "@/components/board-sidepanel";
 import {
   filteredAssets,
@@ -23,6 +24,7 @@ export default function LibraryPage() {
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
   const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const selectedIds = useCanvas((s) => s.selectedIds);
@@ -44,7 +46,10 @@ export default function LibraryPage() {
     filterTagIds,
   });
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
-  const activeKindNames = filterKinds.map(kindLabel).join(" · ");
+  const activeKindNames = [
+    ...filterKinds.map(kindLabel),
+    ...filterCustomTabs.map(customCategoryLabel),
+  ].join(" · ");
   const attrDefs = isPeopleBoard(currentBoard)
     ? CHARACTER_ATTRIBUTES
     : isWardrobeBoard(currentBoard)
@@ -73,6 +78,7 @@ export default function LibraryPage() {
         {visible.length === 0 ? (
           <div className="grid h-full place-items-center text-sm text-zinc-500">
             {filterKinds.length > 0 ||
+            filterCustomTabs.length > 0 ||
             filterAttrKeys.length > 0 ||
             filterTagIds.length > 0 ||
             activeAttrNames
@@ -95,7 +101,10 @@ export default function LibraryPage() {
                     .filter((link) => link.asset_id === asset.id)
                     .flatMap((link) => {
                       const tag = tagById.get(link.tag_id);
-                      return tag && (filterKinds.length === 0 || filterKinds.includes(tag.kind))
+                      const activeTabs = [...filterKinds, ...filterCustomTabs];
+                      return tag &&
+                        (activeTabs.length === 0 ||
+                          activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)))
                         ? [tag]
                         : [];
                     })

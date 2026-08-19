@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { PROMPT_CANVAS_MEDIA_BUCKET } from "@/lib/supabase/config";
 import { resolveBoardKind } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import type {
@@ -14,7 +15,8 @@ import type {
   TagKind,
 } from "@/lib/types";
 import type { LibraryRepo } from "@/lib/data/repo";
-import { extOf } from "@/lib/env";
+import { extOf, sharedUserId } from "@/lib/env";
+import { makeImageThumb } from "@/lib/thumbnail";
 
 type AssetRow = Omit<Asset, "url" | "thumbUrl">;
 
@@ -23,7 +25,19 @@ function publicUrl(
   path: string | null,
 ): string {
   if (!path) return "";
-  return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
+  return supabase.storage.from(PROMPT_CANVAS_MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function hydratePromptSheet(
+  supabase: ReturnType<typeof createClient>,
+  row: PromptSheet,
+): PromptSheet {
+  const previewUrl = row.preview_path ? publicUrl(supabase, row.preview_path) : undefined;
+  return { ...row, previewUrl: previewUrl || undefined };
+}
+
+function promptPreviewPath(userId: string, promptId: string): string {
+  return `${userId}/prompts/${promptId}/preview.webp`;
 }
 
 function hydrate(
@@ -38,17 +52,15 @@ function hydrate(
 export function createSupabaseRepo(): LibraryRepo {
   const supabase = createClient();
 
-  async function requireUserId(): Promise<string> {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw new Error("not authenticated");
-    return data.user.id;
+  async function workspaceUserId(): Promise<string> {
+    return sharedUserId();
   }
 
   return {
     mode: "cloud",
-    getUserId: requireUserId,
+    getUserId: workspaceUserId,
     async listBoards() {
-      const user_id = await requireUserId();
+      const user_id = await workspaceUserId();
       const { data, error } = await supabase
         .from("boards")
         .select("*")
@@ -151,7 +163,7 @@ export function createSupabaseRepo(): LibraryRepo {
       return [created as Board, people as Board, wardrobe as Board, prompts as Board];
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {
-      const user_id = await requireUserId();
+      const user_id = await workspaceUserId();
       const { data, error } = await supabase
         .from("boards")
         .insert({ user_id, name, emoji, kind })
@@ -173,7 +185,10 @@ export function createSupabaseRepo(): LibraryRepo {
         .select("*")
         .order("use_count", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Tag[];
+      return ((data ?? []) as Tag[]).map((tag) => ({
+        ...tag,
+        category_key: tag.category_key ?? null,
+      }));
     },
     async listAssetTags() {
       const { data, error } = await supabase.from("asset_tags").select("*");
@@ -191,16 +206,16 @@ export function createSupabaseRepo(): LibraryRepo {
       return data ? hydrate(supabase, data as AssetRow) : null;
     },
     async insertAsset(input: NewAssetInput, boardId: string) {
-      const user_id = await requireUserId();
+      const user_id = await workspaceUserId();
       const ext = extOf(input.file.name, input.file.type);
       const storage_path = `${user_id}/${input.id}.${ext}`;
       const thumb_path = `${user_id}/thumbs/${input.id}.webp`;
       const up1 = await supabase.storage
-        .from("media")
+        .from(PROMPT_CANVAS_MEDIA_BUCKET)
         .upload(storage_path, input.file, { contentType: input.file.type, upsert: false });
       if (up1.error) throw up1.error;
       const up2 = await supabase.storage
-        .from("media")
+        .from(PROMPT_CANVAS_MEDIA_BUCKET)
         .upload(thumb_path, input.thumb, { contentType: "image/webp", upsert: true });
       if (up2.error) throw up2.error;
       const { data: boardRow } = await supabase
@@ -272,28 +287,37 @@ export function createSupabaseRepo(): LibraryRepo {
         .in("id", ids);
       if (error) throw error;
     },
-    async upsertTag(name, kind: TagKind = "free") {
-      const user_id = await requireUserId();
+    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null) {
+      const user_id = await workspaceUserId();
       const trimmed = name.trim();
-      const { data: existing } = await supabase
+      let query = supabase
         .from("tags")
         .select("*")
         .eq("user_id", user_id)
-        .ilike("name", trimmed)
-        .maybeSingle();
-      if (existing) return existing as Tag;
+        .ilike("name", trimmed);
+      if (categoryKey) query = query.eq("category_key", categoryKey);
+      else query = query.is("category_key", null);
+      const { data: existing } = await query.maybeSingle();
+      if (existing) return { ...(existing as Tag), category_key: (existing as Tag).category_key ?? null };
       const { data, error } = await supabase
         .from("tags")
-        .insert({ user_id, name: trimmed, kind, color: "#D9B382" })
+        .insert({
+          user_id,
+          name: trimmed,
+          kind,
+          category_key: categoryKey,
+          color: "#D9B382",
+        })
         .select("*")
         .single();
       if (error) throw error;
-      return data as Tag;
+      return { ...(data as Tag), category_key: (data as Tag).category_key ?? null };
     },
     async updateTag(id, fields) {
-      const patch: { name?: string; kind?: TagKind } = {};
+      const patch: { name?: string; kind?: TagKind; category_key?: string | null } = {};
       if (fields.name) patch.name = fields.name.trim();
       if (fields.kind) patch.kind = fields.kind;
+      if (fields.category_key !== undefined) patch.category_key = fields.category_key;
       const { data, error } = await supabase
         .from("tags")
         .update(patch)
@@ -349,7 +373,7 @@ export function createSupabaseRepo(): LibraryRepo {
       return (data ?? []) as CharacterAsset[];
     },
     async upsertCharacter(input) {
-      const user_id = await requireUserId();
+      const user_id = await workspaceUserId();
       const row = {
         id: input.id,
         user_id,
@@ -394,10 +418,15 @@ export function createSupabaseRepo(): LibraryRepo {
         .eq("board_id", boardId)
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PromptSheet[];
+      return (data ?? []).map((row) =>
+        hydratePromptSheet(supabase, {
+          ...(row as PromptSheet),
+          preview_path: (row as PromptSheet).preview_path ?? null,
+        }),
+      );
     },
     async upsertPromptSheet(input) {
-      const user_id = await requireUserId();
+      const user_id = await workspaceUserId();
       const stamp = new Date().toISOString();
       const row = {
         id: input.id,
@@ -409,6 +438,7 @@ export function createSupabaseRepo(): LibraryRepo {
         model: input.model,
         notes: input.notes,
         sheet_type: input.sheet_type,
+        preview_path: input.preview_path,
         updated_at: input.updated_at ?? stamp,
       };
       const { data, error } = await supabase
@@ -417,10 +447,63 @@ export function createSupabaseRepo(): LibraryRepo {
         .select("*")
         .single();
       if (error) throw error;
-      return data as PromptSheet;
+      return hydratePromptSheet(supabase, data as PromptSheet);
+    },
+    async setPromptPreview(promptId, file) {
+      const user_id = await workspaceUserId();
+      const { data: existing, error: findErr } = await supabase
+        .from("prompt_sheets")
+        .select("*")
+        .eq("id", promptId)
+        .single();
+      if (findErr || !existing) throw findErr ?? new Error("prompt not found");
+      const path = promptPreviewPath(user_id, promptId);
+      if (!file) {
+        if (existing.preview_path) {
+          await supabase.storage.from(PROMPT_CANVAS_MEDIA_BUCKET).remove([existing.preview_path]);
+        }
+        const { data, error } = await supabase
+          .from("prompt_sheets")
+          .update({ preview_path: null, updated_at: new Date().toISOString() })
+          .eq("id", promptId)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return hydratePromptSheet(supabase, data as PromptSheet);
+      }
+      const { blob } = await makeImageThumb(file);
+      const { error: upErr } = await supabase.storage
+        .from(PROMPT_CANVAS_MEDIA_BUCKET)
+        .upload(path, blob, { contentType: "image/webp", upsert: true });
+      if (upErr) throw upErr;
+      const { data, error } = await supabase
+        .from("prompt_sheets")
+        .update({ preview_path: path, updated_at: new Date().toISOString() })
+        .eq("id", promptId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return hydratePromptSheet(supabase, data as PromptSheet);
     },
     async deletePromptSheet(id) {
       const { error } = await supabase.from("prompt_sheets").delete().eq("id", id);
+      if (error) throw error;
+    },
+    async listCustomTopCategories() {
+      const { data, error } = await supabase
+        .from("workspace_meta")
+        .select("custom_top_categories")
+        .eq("id", "default")
+        .maybeSingle();
+      if (error) throw error;
+      const rows = data?.custom_top_categories;
+      return Array.isArray(rows) ? (rows as { id: string; label: string }[]) : [];
+    },
+    async saveCustomTopCategories(categories) {
+      const { error } = await supabase.from("workspace_meta").upsert({
+        id: "default",
+        custom_top_categories: categories,
+      });
       if (error) throw error;
     },
   };

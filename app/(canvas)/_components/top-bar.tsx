@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LayoutGrid, Search, Upload } from "lucide-react";
+import { ChevronDown, LayoutGrid, Plus, Search, Upload } from "lucide-react";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
@@ -18,7 +18,7 @@ import {
 import { ACCEPT_ATTR } from "@/lib/constants";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
-import { TOP_CATEGORY_KINDS, kindLabel } from "@/lib/tag-kinds";
+import { mergeTopTabs, isBuiltinTabId } from "@/lib/top-categories";
 import { cn } from "@/lib/utils";
 import { TagManager } from "@/components/tag-manager";
 import { isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
@@ -29,6 +29,9 @@ export function TopBar() {
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
   const filterKinds = useCanvas((s) => s.filterKinds);
+  const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
+  const customTopCategories = useCanvas((s) => s.customTopCategories);
+  const addCustomTopCategory = useCanvas((s) => s.addCustomTopCategory);
   const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const filterSheetTypes = useCanvas((s) => s.filterSheetTypes);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
@@ -122,13 +125,21 @@ export function TopBar() {
                 </button>
               );
             })
-          : TOP_CATEGORY_KINDS.map((kind) => {
-              const on = filterKinds.includes(kind);
+          : mergeTopTabs(customTopCategories).map((tab) => {
+              const on = tab.builtin
+                ? filterKinds.includes(tab.id)
+                : filterCustomTabs.includes(tab.id);
               return (
                 <button
-                  key={kind}
+                  key={tab.id}
                   type="button"
-                  onClick={() => useCanvas.getState().toggleFilterKind(kind)}
+                  onClick={() => {
+                    if (tab.builtin && isBuiltinTabId(tab.id)) {
+                      useCanvas.getState().toggleFilterKind(tab.id);
+                    } else {
+                      useCanvas.getState().toggleFilterCustomTab(tab.id);
+                    }
+                  }}
                   className={cn(
                     "h-6 shrink-0 rounded-full px-2 text-[12px]",
                     on
@@ -136,12 +147,29 @@ export function TopBar() {
                       : "bg-white/5 text-zinc-400 hover:bg-white/10",
                   )}
                 >
-                  {kindLabel(kind)}
+                  {tab.label}
                 </button>
               );
             })}
-        {!promptsBoard && !attrCategoryDefs ? <TagManager>{S.tagManage}</TagManager> : null}
+        {!promptsBoard && !attrCategoryDefs ? (
+          <>
+            <button
+              type="button"
+              aria-label={S.addCustomTab}
+              title={S.addCustomTab}
+              onClick={() => {
+                const label = window.prompt(S.addCustomTabPh);
+                if (label?.trim()) void addCustomTopCategory(label);
+              }}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+            >
+              <Plus className="size-3.5" />
+            </button>
+            <TagManager>{S.tagManage}</TagManager>
+          </>
+        ) : null}
         {(filterKinds.length > 0 ||
+          filterCustomTabs.length > 0 ||
           filterAttrKeys.length > 0 ||
           filterSheetTypes.length > 0 ||
           filterTagIds.length > 0 ||

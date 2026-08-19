@@ -22,6 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="grid h-screen place-items-center bg-[#0B0B0D] px-6 text-center">
         <div className="space-y-3">
           <p className="text-sm text-zinc-500">{S.appName}</p>
+          {!loadError ? (
+            <p className="text-xs text-zinc-600">{S.loading}</p>
+          ) : null}
           {loadError ? (
             <>
               <p className="text-sm text-red-400">{S.loadError}</p>
