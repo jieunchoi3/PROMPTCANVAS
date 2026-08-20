@@ -1,9 +1,7 @@
 "use client";
 
 import { PromptsBoard } from "../_components/prompts-board";
-import { optionLabel, attrValues } from "@/lib/attributes";
-import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
-import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
+import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
 import { kindLabel } from "@/lib/tag-kinds";
 import { customCategoryLabel, tagMatchesTopTab } from "@/lib/top-categories";
@@ -25,7 +23,6 @@ export default function LibraryPage() {
   const assetTags = useCanvas((s) => s.assetTags);
   const filterKinds = useCanvas((s) => s.filterKinds);
   const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
-  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const selectedIds = useCanvas((s) => s.selectedIds);
   const select = useCanvas((s) => s.select);
@@ -50,14 +47,6 @@ export default function LibraryPage() {
     ...filterKinds.map(kindLabel),
     ...filterCustomTabs.map(customCategoryLabel),
   ].join(" · ");
-  const attrDefs = isPeopleBoard(currentBoard)
-    ? CHARACTER_ATTRIBUTES
-    : isWardrobeBoard(currentBoard)
-      ? WARDROBE_ATTRIBUTES
-      : [];
-  const activeAttrKeyNames = filterAttrKeys
-    .map((key) => attrDefs.find((a) => a.key === key)?.label ?? key)
-    .join(" · ");
   const activeTagNames = tags
     .filter((t) => filterTagIds.includes(t.id))
     .map((t) => t.name)
@@ -65,7 +54,7 @@ export default function LibraryPage() {
   const activeAttrNames = Object.entries(attrFilters)
     .flatMap(([key, values]) => values.map((value) => optionLabel(key, value)))
     .join(" · ");
-  const activeNames = [activeKindNames, activeAttrKeyNames, activeTagNames, activeAttrNames]
+  const activeNames = [activeKindNames, activeTagNames, activeAttrNames]
     .filter(Boolean)
     .join(" · ");
 
@@ -79,9 +68,8 @@ export default function LibraryPage() {
           <div className="grid h-full place-items-center text-sm text-zinc-500">
             {filterKinds.length > 0 ||
             filterCustomTabs.length > 0 ||
-            filterAttrKeys.length > 0 ||
             filterTagIds.length > 0 ||
-            activeAttrNames
+            hasAttrFilters(attrFilters)
               ? S.tagFilterEmpty
               : isPeopleBoard(currentBoard)
                 ? S.noCharacters
@@ -93,9 +81,11 @@ export default function LibraryPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">
             {visible.map((asset) => {
               const on = selectedIds.includes(asset.id);
-              const matchedKeywords = filterAttrKeys.length
-                ? filterAttrKeys.flatMap((key) =>
-                    attrValues(asset.attributes, key).map((value) => optionLabel(key, value)),
+              const matchedKeywords = hasAttrFilters(attrFilters)
+                ? Object.entries(attrFilters).flatMap(([key, values]) =>
+                    values
+                      .filter((value) => attrValues(asset.attributes, key).includes(value))
+                      .map((value) => optionLabel(key, value)),
                   )
                 : assetTags
                     .filter((link) => link.asset_id === asset.id)

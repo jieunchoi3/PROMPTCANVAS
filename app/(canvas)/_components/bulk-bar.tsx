@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { BoardMovePicker } from "@/components/board-move-picker";
 import { TagPicker } from "@/components/tag-picker";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,8 +13,10 @@ export function BulkBar() {
   const selectedIds = useCanvas((s) => s.selectedIds);
   const assetTags = useCanvas((s) => s.assetTags);
   const deleteSelection = useCanvas((s) => s.deleteSelection);
+  const moveSelectionToBoard = useCanvas((s) => s.moveSelectionToBoard);
   const toggleTagOnSelection = useCanvas((s) => s.toggleTagOnSelection);
   const [tagOpen, setTagOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   if (selectedIds.length < 2) return null;
 
@@ -45,9 +48,19 @@ export function BulkBar() {
       <Button size="xs" variant="ghost" onClick={() => toast(S.bulkGroupSoon)}>
         {S.bulkGroup}
       </Button>
-      <Button size="xs" variant="ghost" onClick={() => toast(S.phase2)}>
-        {S.bulkMove}
-      </Button>
+      <Popover open={moveOpen} onOpenChange={setMoveOpen}>
+        <PopoverTrigger className="inline-flex h-6 items-center rounded-md px-2 text-[12px] hover:bg-white/10">
+          {S.bulkMove}
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-2" align="center" side="top">
+          <BoardMovePicker
+            onPick={(boardId) => {
+              setMoveOpen(false);
+              void moveSelectionToBoard(boardId);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
       <Button size="xs" variant="destructive" onClick={() => void deleteSelection()}>
         {S.bulkDelete}
       </Button>

@@ -18,9 +18,10 @@ import {
 import { ACCEPT_ATTR } from "@/lib/constants";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
-import { mergeTopTabs, isBuiltinTabId } from "@/lib/top-categories";
 import { cn } from "@/lib/utils";
+import { AttrTopFilters, TagTopFilters } from "@/components/top-hierarchical-filters";
 import { TagManager } from "@/components/tag-manager";
+import { hasAttrFilters } from "@/lib/attributes";
 import { isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
 export function TopBar() {
@@ -32,7 +33,6 @@ export function TopBar() {
   const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
   const customTopCategories = useCanvas((s) => s.customTopCategories);
   const addCustomTopCategory = useCanvas((s) => s.addCustomTopCategory);
-  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
   const filterSheetTypes = useCanvas((s) => s.filterSheetTypes);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const mode = useCanvas((s) => s.mode);
@@ -107,73 +107,30 @@ export function TopBar() {
               );
             })
           : attrCategoryDefs
-          ? attrCategoryDefs.map((attr) => {
-              const on = filterAttrKeys.includes(attr.key);
-              return (
-                <button
-                  key={attr.key}
-                  type="button"
-                  onClick={() => useCanvas.getState().toggleFilterAttrKey(attr.key)}
-                  className={cn(
-                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
-                    on
-                      ? "bg-[#D9B382] text-[#0B0B0D]"
-                      : "bg-white/5 text-zinc-400 hover:bg-white/10",
-                  )}
-                >
-                  {attr.label}
-                </button>
-              );
-            })
-          : mergeTopTabs(customTopCategories).map((tab) => {
-              const on = tab.builtin
-                ? filterKinds.includes(tab.id)
-                : filterCustomTabs.includes(tab.id);
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    if (tab.builtin && isBuiltinTabId(tab.id)) {
-                      useCanvas.getState().toggleFilterKind(tab.id);
-                    } else {
-                      useCanvas.getState().toggleFilterCustomTab(tab.id);
-                    }
-                  }}
-                  className={cn(
-                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
-                    on
-                      ? "bg-[#D9B382] text-[#0B0B0D]"
-                      : "bg-white/5 text-zinc-400 hover:bg-white/10",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-        {!promptsBoard && !attrCategoryDefs ? (
-          <>
-            <button
-              type="button"
-              aria-label={S.addCustomTab}
-              title={S.addCustomTab}
-              onClick={() => {
-                const label = window.prompt(S.addCustomTabPh);
-                if (label?.trim()) void addCustomTopCategory(label);
-              }}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-            >
-              <Plus className="size-3.5" />
-            </button>
-            <TagManager>{S.tagManage}</TagManager>
-          </>
-        ) : null}
+          ? <AttrTopFilters defs={attrCategoryDefs} />
+          : (
+            <>
+              <TagTopFilters customTopCategories={customTopCategories} />
+              <button
+                type="button"
+                aria-label={S.addCustomTab}
+                title={S.addCustomTab}
+                onClick={() => {
+                  const label = window.prompt(S.addCustomTabPh);
+                  if (label?.trim()) void addCustomTopCategory(label);
+                }}
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+              >
+                <Plus className="size-3.5" />
+              </button>
+              <TagManager>{S.tagManage}</TagManager>
+            </>
+          )}
         {(filterKinds.length > 0 ||
           filterCustomTabs.length > 0 ||
-          filterAttrKeys.length > 0 ||
           filterSheetTypes.length > 0 ||
           filterTagIds.length > 0 ||
-          Object.values(attrFilters).some((v) => v.length > 0)) ? (
+          hasAttrFilters(attrFilters)) ? (
           <button
             type="button"
             onClick={() => {

@@ -21,21 +21,29 @@ export function AssetNode({
   const autoplay = useCanvas((s) => s.videoAutoplay);
   const filterKinds = useCanvas((s) => s.filterKinds);
   const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
-  const filterAttrKeys = useCanvas((s) => s.filterAttrKeys);
+  const filterTagIds = useCanvas((s) => s.filterTagIds);
+  const attrFilters = useCanvas((s) => s.attrFilters);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
-  const attrLabel = filterAttrKeys
-    .flatMap((key) =>
-      attrValues(asset.attributes, key).map((value) => optionLabel(key, value)),
+  const activeFilterTagIds = new Set(filterTagIds);
+  const attrLabel = Object.entries(attrFilters)
+    .flatMap(([key, values]) =>
+      values
+        .filter((value) => attrValues(asset.attributes, key).includes(value))
+        .map((value) => optionLabel(key, value)),
     )[0];
   const tagLabel = assetTags
     .filter((link) => link.asset_id === asset.id)
     .map((link) => tagById.get(link.tag_id))
     .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
     .filter((tag) => {
+      if (activeFilterTagIds.size > 0) return activeFilterTagIds.has(tag.id);
       const activeTabs = [...filterKinds, ...filterCustomTabs];
-      return activeTabs.length === 0 || activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId));
+      return (
+        activeTabs.length === 0 ||
+        activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId))
+      );
     })
     .map((tag) => tag.name)[0];
   const label = attrLabel ?? tagLabel ?? asset.title ?? "";

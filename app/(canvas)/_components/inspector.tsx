@@ -6,9 +6,11 @@ import { toast } from "sonner";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters, attrMapToFilterValues } from "@/components/attribute-filters";
+import { BoardMovePicker } from "@/components/board-move-picker";
 import { ReverseAnalysisPanel } from "@/components/reverse-analysis-panel";
 import { TagPicker } from "@/components/tag-picker";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { optionLabel } from "@/lib/attributes";
 import { formatDate } from "@/lib/env";
@@ -23,7 +25,9 @@ export function Inspector() {
   const models = useCanvas((s) => s.models);
   const updateFields = useCanvas((s) => s.updateFields);
   const toggleTagOnSelection = useCanvas((s) => s.toggleTagOnSelection);
+  const moveSelectionToBoard = useCanvas((s) => s.moveSelectionToBoard);
   const setLightboxId = useCanvas((s) => s.setLightboxId);
+  const [boardMoveOpen, setBoardMoveOpen] = useState(false);
   const toggleAssetAttr = useCanvas((s) => s.toggleAssetAttr);
   const setCharacterDialogOpen = useCanvas((s) => s.setCharacterDialogOpen);
   const analyses = useCanvas((s) => s.analyses);
@@ -200,8 +204,23 @@ export function Inspector() {
         <div>
           {S.added}: {formatDate(asset.created_at)}
         </div>
-        <div>
-          {S.board}: {board ? `${board.emoji} ${board.name}` : S.none}
+        <div className="flex items-center justify-between gap-2">
+          <span>
+            {S.board}: {board ? `${board.emoji} ${board.name}` : S.none}
+          </span>
+          <Popover open={boardMoveOpen} onOpenChange={setBoardMoveOpen}>
+            <PopoverTrigger className="shrink-0 text-[11px] text-zinc-500 hover:text-zinc-300">
+              {S.bulkMove}
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="end" side="top">
+              <BoardMovePicker
+                onPick={(boardId) => {
+                  setBoardMoveOpen(false);
+                  void moveSelectionToBoard(boardId);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
           {S.group}: {S.none}

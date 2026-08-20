@@ -171,6 +171,12 @@ export type HistoryEntry =
       after: Partial<
         Pick<Asset, "prompt" | "negative_prompt" | "model" | "title" | "attributes" | "is_character">
       >;
+    }
+  | {
+      kind: "board-move";
+      assets: Asset[];
+      fromBoardId: string;
+      toBoardId: string;
     };
 
 export type UploadItem = {

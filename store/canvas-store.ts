@@ -1,19 +1,24 @@
 "use client";
 
 import { create } from "zustand";
+import { toast } from "sonner";
 import { PERSIST_MS, UNDO_TOAST_MS } from "@/lib/constants";
 import { getRepo } from "@/lib/data/get-repo";
 import { clearSeedAssets, ensureStarterTags } from "@/lib/seed-local";
 import { fetchImageBase64 } from "@/lib/image-base64";
 import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
-import { matchesAttributes, hasAttrFilters, toggleAttribute, attrValues } from "@/lib/attributes";
+import { matchesAttributes, hasAttrFilters, toggleAttribute } from "@/lib/attributes";
 import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
+import { S } from "@/lib/strings";
 import {
   customCategoryId,
-  tagMatchesTopTab,
   type CustomTopCategory,
 } from "@/lib/top-categories";
+import {
+  coarseTagTabFilter,
+  filterAssetsByTags,
+} from "@/lib/tag-filter";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import type {
@@ -60,7 +65,6 @@ type CanvasState = {
   filterCustomTabs: string[];
   customTopCategories: CustomTopCategory[];
   filterTagIds: string[];
-  filterAttrKeys: string[];
   models: string[];
   uploads: UploadItem[];
   guides: AlignmentGuide[];
@@ -90,7 +94,6 @@ type CanvasState = {
   toggleFilterKind: (kind: Tag["kind"]) => void;
   toggleFilterCustomTab: (tabId: string) => void;
   addCustomTopCategory: (label: string) => Promise<void>;
-  toggleFilterAttrKey: (key: string) => void;
   toggleFilterTag: (id: string) => void;
   clearFilters: () => void;
   select: (ids: string[], additive?: boolean) => void;
@@ -117,6 +120,7 @@ type CanvasState = {
   deleteTag: (id: string) => Promise<void>;
   removeTag: (assetId: string, tagId: string) => Promise<void>;
   deleteSelection: () => Promise<void>;
+  moveSelectionToBoard: (targetBoardId: string) => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   addAssets: (assets: Asset[]) => void;
@@ -199,7 +203,6 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   filterCustomTabs: [],
   customTopCategories: [],
   filterTagIds: [],
-  filterAttrKeys: [],
   models: [],
   uploads: [],
   guides: [],
@@ -287,7 +290,6 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       filterKinds: [],
       filterCustomTabs: [],
       filterTagIds: [],
-      filterAttrKeys: [],
       filterSheetTypes: [],
       attrFilters: {},
     });
@@ -334,14 +336,6 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     await getRepo().saveCustomTopCategories(next);
     set({ customTopCategories: next });
   },
-  toggleFilterAttrKey: (key) => {
-    const cur = get().filterAttrKeys;
-    set({
-      filterAttrKeys: cur.includes(key)
-        ? cur.filter((x) => x !== key)
-        : [...cur, key],
-    });
-  },
   toggleFilterTag: (id) => {
     const cur = get().filterTagIds;
     set({
@@ -353,7 +347,6 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       filterKinds: [],
       filterCustomTabs: [],
       filterTagIds: [],
-      filterAttrKeys: [],
       filterSheetTypes: [],
     }),
   select: (ids, additive = false) => {
@@ -576,6 +569,35 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     await getRepo().softDelete(ids);
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => set({ undoToast: null }), UNDO_TOAST_MS);
+  },
+
+  moveSelectionToBoard: async (targetBoardId) => {
+    const ids = get().selectedIds;
+    const fromBoardId = get().boardId;
+    if (ids.length === 0 || !fromBoardId || targetBoardId === fromBoardId) return;
+
+    const idSet = new Set(ids);
+    const moving = get().assets.filter((asset) => idSet.has(asset.id));
+    if (moving.length === 0) return;
+
+    const snapshots = moving.map((asset) => ({ ...asset, board_id: targetBoardId }));
+    await getRepo().updateAssets(
+      moving.map((asset) => ({ id: asset.id, fields: { board_id: targetBoardId } })),
+    );
+
+    set({
+      assets: get().assets.filter((asset) => !idSet.has(asset.id)),
+      selectedIds: [],
+    });
+    get().commitHistory({
+      kind: "board-move",
+      assets: snapshots,
+      fromBoardId,
+      toBoardId: targetBoardId,
+    });
+
+    const targetBoard = get().boards.find((board) => board.id === targetBoardId);
+    toast.success(S.movedToBoard(moving.length, targetBoard?.name ?? S.board));
   },
 
   undo: async () => {
@@ -880,6 +902,21 @@ async function applyInverse(entry: HistoryEntry, set: SetFn, get: GetFn) {
       ),
     });
     await repo.updateAssets([{ id: entry.id, fields: entry.before }]);
+  } else if (entry.kind === "board-move") {
+    const currentBoardId = get().boardId;
+    await repo.updateAssets(
+      entry.assets.map((asset) => ({
+        id: asset.id,
+        fields: { board_id: entry.fromBoardId },
+      })),
+    );
+    const restored = entry.assets.map((asset) => ({ ...asset, board_id: entry.fromBoardId }));
+    const restoreIds = new Set(restored.map((asset) => asset.id));
+    if (currentBoardId === entry.fromBoardId) {
+      set({ assets: [...get().assets, ...restored] });
+    } else if (currentBoardId === entry.toBoardId) {
+      set({ assets: get().assets.filter((asset) => !restoreIds.has(asset.id)) });
+    }
   }
 }
 
@@ -929,49 +966,49 @@ async function applyForward(entry: HistoryEntry, set: SetFn, get: GetFn) {
       ),
     });
     await repo.updateAssets([{ id: entry.id, fields: entry.after }]);
+  } else if (entry.kind === "board-move") {
+    const currentBoardId = get().boardId;
+    await repo.updateAssets(
+      entry.assets.map((asset) => ({
+        id: asset.id,
+        fields: { board_id: entry.toBoardId },
+      })),
+    );
+    const moved = entry.assets;
+    const movedIds = new Set(moved.map((asset) => asset.id));
+    if (currentBoardId === entry.toBoardId) {
+      set({ assets: [...get().assets, ...moved] });
+    } else if (currentBoardId === entry.fromBoardId) {
+      set({ assets: get().assets.filter((asset) => !movedIds.has(asset.id)) });
+    }
   }
 }
 
 export function filteredAssets(state: CanvasState): Asset[] {
   let list = state.assets;
-  if (state.filterKinds.length > 0 || state.filterCustomTabs.length > 0) {
-    const tagById = new Map(state.tags.map((tag) => [tag.id, tag]));
-    const byAssetTags = new Map<string, Tag[]>();
-    for (const at of state.assetTags) {
-      const tag = tagById.get(at.tag_id);
-      if (!tag) continue;
-      const arr = byAssetTags.get(at.asset_id) ?? [];
-      arr.push(tag);
-      byAssetTags.set(at.asset_id, arr);
-    }
-    const activeTabs = [
-      ...state.filterKinds,
-      ...state.filterCustomTabs,
-    ];
-    list = list.filter((asset) => {
-      const tags = byAssetTags.get(asset.id) ?? [];
-      return activeTabs.some((tabId) => tags.some((tag) => tagMatchesTopTab(tag, tabId)));
-    });
-  }
+  const ids = list.map((asset) => asset.id);
+
   if (state.filterTagIds.length > 0) {
-    const byAsset = new Map<string, Set<string>>();
-    for (const at of state.assetTags) {
-      const set = byAsset.get(at.asset_id) ?? new Set<string>();
-      set.add(at.tag_id);
-      byAsset.set(at.asset_id, set);
-    }
-    list = list.filter((a) => {
-      const tags = byAsset.get(a.id);
-      return state.filterTagIds.every((id) => tags?.has(id));
-    });
-  }
-  if (state.filterAttrKeys.length > 0) {
-    list = list.filter((asset) =>
-      state.filterAttrKeys.some((key) => attrValues(asset.attributes, key).length > 0),
+    const matched = filterAssetsByTags(
+      ids,
+      state.assetTags,
+      state.tags,
+      state.filterTagIds,
     );
+    list = list.filter((asset) => matched.has(asset.id));
+  } else if (state.filterKinds.length > 0 || state.filterCustomTabs.length > 0) {
+    const activeTabs = [...state.filterKinds, ...state.filterCustomTabs];
+    const matched = coarseTagTabFilter(
+      ids,
+      state.assetTags,
+      state.tags,
+      activeTabs,
+    );
+    list = list.filter((asset) => matched.has(asset.id));
   }
+
   if (hasAttrFilters(state.attrFilters)) {
-    list = list.filter((a) => matchesAttributes(a.attributes, state.attrFilters));
+    list = list.filter((asset) => matchesAttributes(asset.attributes, state.attrFilters));
   }
   return list;
 }

@@ -119,6 +119,9 @@ export const S = {
   bulkMove: "보드 이동",
   bulkDelete: "삭제",
   bulkGroupSoon: "그룹은 2단계에서 열립니다.",
+  moveToBoard: "이동할 보드",
+  movedToBoard: (n: number, board: string) =>
+    n === 1 ? `「${board}」 보드로 옮겼어요` : `${n}장을 「${board}」 보드로 옮겼어요`,
 
   undo: "실행 취소",
   deleted: (n: number) => (n === 1 ? "1장 삭제했어요" : `${n}장 삭제했어요`),
