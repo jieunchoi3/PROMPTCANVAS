@@ -86,7 +86,8 @@ export function TopBar() {
         <kbd className="ml-auto text-[10px] text-zinc-600">⌘K</kbd>
       </button>
 
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {promptsBoard
           ? PROMPT_SHEET_TYPES.map((type) => {
               const on = filterSheetTypes.includes(type.value);
@@ -108,24 +109,25 @@ export function TopBar() {
             })
           : attrCategoryDefs
           ? <AttrTopFilters defs={attrCategoryDefs} />
-          : (
-            <>
-              <TagTopFilters customTopCategories={customTopCategories} />
-              <button
-                type="button"
-                aria-label={S.addCustomTab}
-                title={S.addCustomTab}
-                onClick={() => {
-                  const label = window.prompt(S.addCustomTabPh);
-                  if (label?.trim()) void addCustomTopCategory(label);
-                }}
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-              >
-                <Plus className="size-3.5" />
-              </button>
-              <TagManager>{S.tagManage}</TagManager>
-            </>
-          )}
+          : <TagTopFilters customTopCategories={customTopCategories} />}
+        </div>
+        {!promptsBoard && !attrCategoryDefs ? (
+          <>
+            <button
+              type="button"
+              aria-label={S.addCustomTab}
+              title={S.addCustomTab}
+              onClick={() => {
+                const label = window.prompt(S.addCustomTabPh);
+                if (label?.trim()) void addCustomTopCategory(label);
+              }}
+              className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+            >
+              <Plus className="size-3.5" />
+            </button>
+            <TagManager>{S.tagManage}</TagManager>
+          </>
+        ) : null}
         {(filterKinds.length > 0 ||
           filterCustomTabs.length > 0 ||
           filterSheetTypes.length > 0 ||
