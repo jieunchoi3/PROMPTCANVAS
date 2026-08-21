@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { PromptsBoard } from "../_components/prompts-board";
 import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
@@ -35,6 +35,7 @@ export default function LibraryPage() {
   const attrFilters = useCanvas((s) => s.attrFilters);
   const currentBoard = boards.find((b) => b.id === boardId);
   const { cellSize, containerRef, setCellSize } = useLibraryGridZoom();
+  const selectionAnchorId = useRef<string | null>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -91,6 +92,30 @@ export default function LibraryPage() {
 
   const compact = cellSize < 120;
 
+  function onAssetClick(assetId: string, e: React.MouseEvent) {
+    const index = visible.findIndex((asset) => asset.id === assetId);
+    if (index < 0) return;
+
+    if (e.shiftKey) {
+      const anchorId = selectionAnchorId.current ?? selectedIds[0] ?? assetId;
+      const anchorIndex = visible.findIndex((asset) => asset.id === anchorId);
+      const start = Math.min(anchorIndex >= 0 ? anchorIndex : index, index);
+      const end = Math.max(anchorIndex >= 0 ? anchorIndex : index, index);
+      const rangeIds = visible.slice(start, end + 1).map((asset) => asset.id);
+      select(rangeIds, false);
+      return;
+    }
+
+    if (e.metaKey || e.ctrlKey) {
+      select([assetId], true);
+      selectionAnchorId.current = assetId;
+      return;
+    }
+
+    select([assetId], false);
+    selectionAnchorId.current = assetId;
+  }
+
   return (
     <div className="flex h-full min-h-0">
       <div
@@ -144,7 +169,7 @@ export default function LibraryPage() {
                 <button
                   key={asset.id}
                   type="button"
-                  onClick={(e) => select([asset.id], e.shiftKey || e.metaKey || e.ctrlKey)}
+                  onClick={(e) => onAssetClick(asset.id, e)}
                   onDoubleClick={() => setLightboxId(asset.id)}
                   className="group overflow-hidden bg-zinc-900 text-left"
                   style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
