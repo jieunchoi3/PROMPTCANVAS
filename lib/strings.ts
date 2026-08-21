@@ -30,6 +30,7 @@ export const S = {
   peopleBoard: "인물",
   peopleBoardEmoji: "✧",
   peopleHint: "인물을 올려 두고 성별·외모로 걸러 보세요. 이름은 캐릭터로 저장하면 됩니다.",
+  bulkAttrHint: "선택한 이미지에 한 번에 붙입니다. ⌘/Shift 클릭으로 여러 장 고르세요.",
   wardrobeBoard: "의상",
   wardrobeBoardEmoji: "✦",
   wardrobeHint: "핀터레스트 의상 영감을 올려두고 아이템·감성·색감으로 빠르게 찾으세요.",

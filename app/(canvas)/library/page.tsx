@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import { PromptsBoard } from "../_components/prompts-board";
 import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
 import { kindLabel } from "@/lib/tag-kinds";
 import { customCategoryLabel, tagMatchesTopTab } from "@/lib/top-categories";
 import { BoardSidepanel } from "@/components/board-sidepanel";
+import { BulkAttrPanel } from "@/components/bulk-attr-panel";
+import { useLibraryGridZoom, GRID_CELL_DEFAULT } from "@/hooks/use-library-grid-zoom";
 import {
   filteredAssets,
   isPeopleBoard,
@@ -31,6 +34,34 @@ export default function LibraryPage() {
   const boardId = useCanvas((s) => s.boardId);
   const attrFilters = useCanvas((s) => s.attrFilters);
   const currentBoard = boards.find((b) => b.id === boardId);
+  const { cellSize, containerRef, setCellSize } = useLibraryGridZoom();
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "=" || e.key === "+") {
+        e.preventDefault();
+        setCellSize(cellSize * 1.12);
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        setCellSize(cellSize / 1.12);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        setCellSize(GRID_CELL_DEFAULT);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cellSize, setCellSize]);
 
   if (isPromptsBoard(currentBoard)) {
     return <PromptsBoard />;
@@ -58,9 +89,14 @@ export default function LibraryPage() {
     .filter(Boolean)
     .join(" · ");
 
+  const compact = cellSize < 120;
+
   return (
     <div className="flex h-full min-h-0">
-      <div className="relative min-w-0 flex-1 overflow-y-auto p-3">
+      <div
+        ref={containerRef}
+        className="relative min-w-0 flex-1 overflow-y-auto p-3"
+      >
         {activeNames ? (
           <div className="mb-2 text-[12px] text-zinc-500">{activeNames}</div>
         ) : null}
@@ -78,7 +114,12 @@ export default function LibraryPage() {
                   : S.emptyLibrary}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">
+          <div
+            className="grid gap-2"
+            style={{
+              gridTemplateColumns: `repeat(auto-fill, minmax(${cellSize}px, 1fr))`,
+            }}
+          >
             {visible.map((asset) => {
               const on = selectedIds.includes(asset.id);
               const matchedKeywords = hasAttrFilters(attrFilters)
@@ -103,7 +144,7 @@ export default function LibraryPage() {
                 <button
                   key={asset.id}
                   type="button"
-                  onClick={(e) => select([asset.id], e.shiftKey)}
+                  onClick={(e) => select([asset.id], e.shiftKey || e.metaKey || e.ctrlKey)}
                   onDoubleClick={() => setLightboxId(asset.id)}
                   className="group overflow-hidden bg-zinc-900 text-left"
                   style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
@@ -116,30 +157,32 @@ export default function LibraryPage() {
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <div className="space-y-0.5 px-2 py-1.5">
-                    <div className="truncate text-[11px] text-zinc-400">
-                      {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
-                    </div>
-                    {Object.keys(asset.attributes).length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(asset.attributes)
-                          .flatMap(([key, raw]) =>
-                            (Array.isArray(raw) ? raw : [raw]).map((value) => (
-                              <span
-                                key={`${asset.id}-${key}-${value}`}
-                                className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400"
-                              >
-                                {optionLabel(key, value)}
-                              </span>
-                            )),
-                          )
-                          .slice(0, 3)}
+                  {!compact ? (
+                    <div className="space-y-0.5 px-2 py-1.5">
+                      <div className="truncate text-[11px] text-zinc-400">
+                        {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
                       </div>
-                    ) : null}
-                    <div className="line-clamp-3 text-[11px] leading-snug text-zinc-300">
-                      {asset.prompt || " "}
+                      {Object.keys(asset.attributes).length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(asset.attributes)
+                            .flatMap(([key, raw]) =>
+                              (Array.isArray(raw) ? raw : [raw]).map((value) => (
+                                <span
+                                  key={`${asset.id}-${key}-${value}`}
+                                  className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                                >
+                                  {optionLabel(key, value)}
+                                </span>
+                              )),
+                            )
+                            .slice(0, 3)}
+                        </div>
+                      ) : null}
+                      <div className="line-clamp-3 text-[11px] leading-snug text-zinc-300">
+                        {asset.prompt || " "}
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
                 </button>
               );
             })}
@@ -148,7 +191,14 @@ export default function LibraryPage() {
         <BulkBar />
         <UndoToast />
       </div>
-      {selectedIds.length === 1 ? <Inspector /> : <BoardSidepanel board={currentBoard} />}
+      {selectedIds.length === 1 ? (
+        <Inspector />
+      ) : selectedIds.length > 1 &&
+        (isPeopleBoard(currentBoard) || isWardrobeBoard(currentBoard)) ? (
+        <BulkAttrPanel board={currentBoard} />
+      ) : (
+        <BoardSidepanel board={currentBoard} />
+      )}
     </div>
   );
 }

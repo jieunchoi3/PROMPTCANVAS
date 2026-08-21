@@ -38,6 +38,29 @@ export function toggleAttribute(
   return copy;
 }
 
+/** Force-apply or clear a value across assets (for bulk labeling). */
+export function applyAttribute(
+  map: AttributeMap,
+  key: string,
+  value: string,
+  mode: "set" | "clear",
+): AttributeMap {
+  const def = allDefs().find((a) => a.key === key);
+  const current = attrValues(map, key);
+  let next: string[];
+  if (mode === "clear") {
+    next = current.filter((v) => v !== value);
+  } else if (!def?.multi) {
+    next = [value];
+  } else {
+    next = current.includes(value) ? current : [...current, value];
+  }
+  const copy: AttributeMap = { ...map };
+  if (next.length === 0) delete copy[key];
+  else copy[key] = def?.multi ? next : next[0];
+  return copy;
+}
+
 export function matchesAttributes(
   map: AttributeMap | undefined,
   filters: Record<string, string[]>,

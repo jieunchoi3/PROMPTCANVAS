@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BoardSidepanel } from "@/components/board-sidepanel";
+import { BulkAttrPanel } from "@/components/bulk-attr-panel";
 import { CULL_PAD } from "@/lib/constants";
 import {
   fitCamera,
@@ -294,7 +295,14 @@ export function CanvasBoard() {
         <UploadQueue />
         <UndoToast />
       </div>
-      {selectedIds.length === 1 ? <Inspector /> : <BoardSidepanel board={currentBoard} />}
+      {selectedIds.length === 1 ? (
+        <Inspector />
+      ) : selectedIds.length > 1 &&
+        (isPeopleBoard(currentBoard) || isWardrobeBoard(currentBoard)) ? (
+        <BulkAttrPanel board={currentBoard} />
+      ) : (
+        <BoardSidepanel board={currentBoard} />
+      )}
       {lightbox ? (
         <button
           type="button"

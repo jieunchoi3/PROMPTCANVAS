@@ -49,7 +49,7 @@ export function TopBar() {
       : null;
 
   return (
-    <header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 bg-[#0B0B0D] px-2 text-[13px]">
+    <header className="flex min-h-10 shrink-0 items-start gap-2 border-b border-white/10 bg-[#0B0B0D] px-2 py-1.5 text-[13px]">
       <DropdownMenu>
         <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-zinc-200 hover:bg-white/5">
           <span>{current ? `${current.emoji} ${current.name}` : S.defaultBoard}</span>
@@ -86,10 +86,10 @@ export function TopBar() {
         <kbd className="ml-auto text-[10px] text-zinc-600">⌘K</kbd>
       </button>
 
-      <div className="flex min-w-0 flex-1 items-center gap-1">
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {promptsBoard
-          ? PROMPT_SHEET_TYPES.map((type) => {
+      <div className="flex min-w-0 flex-1 items-start gap-1">
+        {promptsBoard ? (
+          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {PROMPT_SHEET_TYPES.map((type) => {
               const on = filterSheetTypes.includes(type.value);
               return (
                 <button
@@ -106,13 +106,15 @@ export function TopBar() {
                   {type.label}
                 </button>
               );
-            })
-          : attrCategoryDefs
-          ? <AttrTopFilters defs={attrCategoryDefs} />
-          : <TagTopFilters customTopCategories={customTopCategories} />}
-        </div>
+            })}
+          </div>
+        ) : attrCategoryDefs ? (
+          <AttrTopFilters defs={attrCategoryDefs} />
+        ) : (
+          <TagTopFilters customTopCategories={customTopCategories} />
+        )}
         {!promptsBoard && !attrCategoryDefs ? (
-          <>
+          <div className="flex shrink-0 items-center gap-1 pt-0.5">
             <button
               type="button"
               aria-label={S.addCustomTab}
@@ -126,7 +128,7 @@ export function TopBar() {
               <Plus className="size-3.5" />
             </button>
             <TagManager>{S.tagManage}</TagManager>
-          </>
+          </div>
         ) : null}
         {(filterKinds.length > 0 ||
           filterCustomTabs.length > 0 ||
@@ -139,21 +141,21 @@ export function TopBar() {
               useCanvas.getState().clearFilters();
               useCanvas.getState().clearAttrFilters();
             }}
-            className="h-6 shrink-0 px-1 text-[11px] text-zinc-500 hover:text-zinc-300"
+            className="h-6 shrink-0 px-1 pt-0.5 text-[11px] text-zinc-500 hover:text-zinc-300"
           >
             {S.clearFilters}
           </button>
         ) : null}
       </div>
 
-      <span className="hidden text-[11px] text-zinc-600 sm:inline">
+      <span className="hidden h-7 items-center text-[11px] text-zinc-600 sm:inline-flex">
         {mode === "local" ? S.localMode : S.cloudMode}
       </span>
 
       <Link
         href={pathname === "/library" ? "/" : "/library"}
         className={cn(
-          "inline-flex size-7 items-center justify-center rounded-md hover:bg-white/5",
+          "inline-flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-white/5",
           pathname === "/library" ? "text-[#D9B382]" : "text-zinc-400",
         )}
         aria-label={pathname === "/library" ? S.canvas : S.library}

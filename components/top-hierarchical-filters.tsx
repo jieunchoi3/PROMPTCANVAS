@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { mergeTopTabs, tagMatchesTopTab, type TopCategoryTab } from "@/lib/top-categories";
 import type { Tag } from "@/lib/types";
@@ -17,50 +17,53 @@ const pillBase = "h-6 shrink-0 rounded-full px-2 text-[12px] transition-colors";
 const pillOn = "bg-[#D9B382] text-[#0B0B0D]";
 const pillOff = "bg-white/5 text-zinc-400 hover:bg-white/10";
 const pillCategoryOn = "bg-white/15 text-zinc-100 ring-1 ring-[#D9B382]/40";
+const scrollRow =
+  "flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export function AttrTopFilters({ defs }: { defs: readonly AttrDef[] }) {
   const attrFilters = useCanvas((s) => s.attrFilters);
   const toggleAttrFilter = useCanvas((s) => s.toggleAttrFilter);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  return (
-    <>
-      {defs.map((attr) => {
-        const activeValues = attrFilters[attr.key] ?? [];
-        const expanded = expandedKey === attr.key;
-        const categoryActive = activeValues.length > 0;
+  const expanded = defs.find((attr) => attr.key === expandedKey) ?? null;
+  const activeValues = expanded ? (attrFilters[expanded.key] ?? []) : [];
 
-        return (
-          <Fragment key={attr.key}>
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
+      <div className={scrollRow}>
+        {defs.map((attr) => {
+          const values = attrFilters[attr.key] ?? [];
+          const on = values.length > 0 || expandedKey === attr.key;
+          return (
             <button
+              key={attr.key}
               type="button"
-              onClick={() => setExpandedKey(expanded ? null : attr.key)}
-              className={cn(
-                pillBase,
-                categoryActive || expanded ? pillCategoryOn : pillOff,
-              )}
+              onClick={() => setExpandedKey(expandedKey === attr.key ? null : attr.key)}
+              className={cn(pillBase, on ? pillCategoryOn : pillOff)}
             >
               {attr.label}
             </button>
-            {expanded
-              ? attr.options.map((opt) => {
-                  const on = activeValues.includes(opt.value);
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => toggleAttrFilter(attr.key, opt.value)}
-                      className={cn(pillBase, on ? pillOn : pillOff)}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })
-              : null}
-          </Fragment>
-        );
-      })}
-    </>
+          );
+        })}
+      </div>
+      {expanded ? (
+        <div className={scrollRow}>
+          {expanded.options.map((opt) => {
+            const on = activeValues.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleAttrFilter(expanded.key, opt.value)}
+                className={cn(pillBase, on ? pillOn : pillOff)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -74,71 +77,75 @@ export function TagTopFilters({
   const toggleFilterTag = useCanvas((s) => s.toggleFilterTag);
   const [expandedTabId, setExpandedTabId] = useState<string | null>(null);
   const tabs = mergeTopTabs(customTopCategories);
-
-  return (
-    <>
-      {tabs.map((tab) => (
-        <TagCategoryPills
-          key={tab.id}
-          tab={tab}
-          tags={tags}
-          expanded={expandedTabId === tab.id}
-          filterTagIds={filterTagIds}
-          onExpand={() => setExpandedTabId(expandedTabId === tab.id ? null : tab.id)}
-          onToggleTag={toggleFilterTag}
-        />
-      ))}
-    </>
-  );
-}
-
-function TagCategoryPills({
-  tab,
-  tags,
-  expanded,
-  filterTagIds,
-  onExpand,
-  onToggleTag,
-}: {
-  tab: TopCategoryTab;
-  tags: Tag[];
-  expanded: boolean;
-  filterTagIds: string[];
-  onExpand: () => void;
-  onToggleTag: (id: string) => void;
-}) {
-  const items = tags.filter((tag) => tagMatchesTopTab(tag, tab.id));
+  const expanded = tabs.find((tab) => tab.id === expandedTabId) ?? null;
+  const items = expanded
+    ? tags.filter((tag) => tagMatchesTopTab(tag, expanded.id))
+    : [];
   const activeIds = new Set(filterTagIds);
-  const categoryActive = items.some((tag) => activeIds.has(tag.id));
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={onExpand}
-        className={cn(pillBase, categoryActive || expanded ? pillCategoryOn : pillOff)}
-      >
-        {tab.label}
-      </button>
-      {expanded
-        ? items.length > 0
-          ? items.map((tag) => {
+    <div className="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
+      <div className={scrollRow}>
+        {tabs.map((tab) => (
+          <TagCategoryButton
+            key={tab.id}
+            tab={tab}
+            tags={tags}
+            expanded={expandedTabId === tab.id}
+            filterTagIds={filterTagIds}
+            onExpand={() => setExpandedTabId(expandedTabId === tab.id ? null : tab.id)}
+          />
+        ))}
+      </div>
+      {expanded ? (
+        <div className={scrollRow}>
+          {items.length > 0 ? (
+            items.map((tag) => {
               const on = activeIds.has(tag.id);
               return (
                 <button
                   key={tag.id}
                   type="button"
-                  onClick={() => onToggleTag(tag.id)}
+                  onClick={() => toggleFilterTag(tag.id)}
                   className={cn(pillBase, on ? pillOn : pillOff)}
                 >
                   {tag.name}
                 </button>
               );
             })
-          : (
-              <span className="shrink-0 px-1 text-[11px] text-zinc-600">—</span>
-            )
-        : null}
-    </>
+          ) : (
+            <span className="shrink-0 px-1 text-[11px] text-zinc-600">—</span>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TagCategoryButton({
+  tab,
+  tags,
+  expanded,
+  filterTagIds,
+  onExpand,
+}: {
+  tab: TopCategoryTab;
+  tags: Tag[];
+  expanded: boolean;
+  filterTagIds: string[];
+  onExpand: () => void;
+}) {
+  const items = tags.filter((tag) => tagMatchesTopTab(tag, tab.id));
+  const activeIds = new Set(filterTagIds);
+  const categoryActive = items.some((tag) => activeIds.has(tag.id));
+
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className={cn(pillBase, categoryActive || expanded ? pillCategoryOn : pillOff)}
+    >
+      {tab.label}
+    </button>
   );
 }

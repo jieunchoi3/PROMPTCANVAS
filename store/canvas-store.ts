@@ -8,7 +8,7 @@ import { clearSeedAssets, ensureStarterTags } from "@/lib/seed-local";
 import { fetchImageBase64 } from "@/lib/image-base64";
 import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
-import { matchesAttributes, hasAttrFilters, toggleAttribute } from "@/lib/attributes";
+import { matchesAttributes, hasAttrFilters, toggleAttribute, applyAttribute, attrValues } from "@/lib/attributes";
 import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import {
@@ -131,6 +131,7 @@ type CanvasState = {
   toggleAttrFilter: (key: string, value: string) => void;
   clearAttrFilters: () => void;
   toggleAssetAttr: (assetId: string, key: string, value: string) => void;
+  applyAttrToSelection: (key: string, value: string) => void;
   setCharacterDialogOpen: (open: boolean) => void;
   saveCharacter: (input: {
     name: string;
@@ -652,6 +653,19 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     if (!asset) return;
     const attributes = toggleAttribute(asset.attributes ?? {}, key, value);
     get().updateFields(assetId, { attributes }, false);
+  },
+  applyAttrToSelection: (key, value) => {
+    const ids = get().selectedIds;
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const selected = get().assets.filter((a) => idSet.has(a.id));
+    if (selected.length === 0) return;
+    const allHave = selected.every((a) => attrValues(a.attributes, key).includes(value));
+    const mode = allHave ? "clear" : "set";
+    for (const asset of selected) {
+      const attributes = applyAttribute(asset.attributes ?? {}, key, value, mode);
+      get().updateFields(asset.id, { attributes }, false);
+    }
   },
   setCharacterDialogOpen: (characterDialogOpen) => set({ characterDialogOpen }),
   saveCharacter: async (input) => {
