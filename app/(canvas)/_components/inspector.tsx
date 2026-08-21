@@ -34,6 +34,7 @@ export function Inspector() {
   const analyzingAssetId = useCanvas((s) => s.analyzingAssetId);
   const analyzeAsset = useCanvas((s) => s.analyzeAsset);
   const analyzeWardrobeAsset = useCanvas((s) => s.analyzeWardrobeAsset);
+  const analyzeCharacterAsset = useCanvas((s) => s.analyzeCharacterAsset);
   const [copied, setCopied] = useState(false);
 
   const asset = selectedIds.length === 1 ? assets.find((a) => a.id === selectedIds[0]) : undefined;
@@ -115,8 +116,30 @@ export function Inspector() {
 
       {attrDefs.length > 0 ? (
         <>
-          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-            {peopleBoard ? S.peopleAttrs : S.wardrobeSection}
+          <div className="mt-4 mb-1 flex items-center justify-between gap-2">
+            <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+              {peopleBoard ? S.peopleAttrs : S.wardrobeSection}
+            </div>
+            {peopleBoard && asset.kind === "image" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 shrink-0"
+                disabled={analyzingAssetId === asset.id}
+                onClick={() => {
+                  void analyzeCharacterAsset(asset.id)
+                    .then(() => toast.success(S.peopleAnalyzed))
+                    .catch((err) => {
+                      const detail = err instanceof Error ? err.message : "";
+                      toast.error(
+                        detail ? S.analysisFailedDetail(detail) : S.peopleAnalyzeFailed,
+                      );
+                    });
+                }}
+              >
+                {analyzingAssetId === asset.id ? S.analyzing : S.analyzeCharacter}
+              </Button>
+            ) : null}
           </div>
           <AttributeFilters
             defs={attrDefs}

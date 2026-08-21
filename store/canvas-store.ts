@@ -8,6 +8,7 @@ import { clearSeedAssets, ensureStarterTags } from "@/lib/seed-local";
 import { fetchImageBase64 } from "@/lib/image-base64";
 import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
+import type { CharacterAnalysis } from "@/lib/character-analysis-schema";
 import { matchesAttributes, hasAttrFilters, toggleAttribute, applyAttribute, attrValues } from "@/lib/attributes";
 import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
@@ -157,6 +158,7 @@ type CanvasState = {
   uploadPromptPreview: (id: string, file: File | null) => Promise<void>;
   analyzeAsset: (assetId: string) => Promise<void>;
   analyzeWardrobeAsset: (assetId: string) => Promise<void>;
+  analyzeCharacterAsset: (assetId: string) => Promise<void>;
   applyAnalysis: (
     assetId: string,
     opts: { prompt: boolean; tags: boolean },
@@ -847,6 +849,50 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       for (const tagName of a.suggested_tags.slice(0, 8)) {
         await get().addTagToSelection(tagName, "free");
       }
+    } finally {
+      set({ analyzingAssetId: null });
+    }
+  },
+
+  analyzeCharacterAsset: async (assetId) => {
+    const asset = get().assets.find((a) => a.id === assetId);
+    if (!asset || asset.kind !== "image") return;
+    set({ analyzingAssetId: assetId });
+    try {
+      const src = asset.thumbUrl || asset.url;
+      const { data, mimeType } = await fetchImageBase64(src);
+      const res = await fetch("/api/analyze-character", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, imageBase64: data, mimeType }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        analysis?: CharacterAnalysis;
+        error?: string;
+      };
+      if (!res.ok || !json.analysis) {
+        throw new Error(json.error ?? "character_analyze_failed");
+      }
+      const a = json.analysis;
+      const attributes: AttributeMap = { ...asset.attributes };
+      attributes.gender = a.gender;
+      attributes.ethnicity = a.ethnicity;
+      attributes.age_band = a.age_band;
+      if (a.build) attributes.build = a.build;
+      else delete attributes.build;
+      if (a.hair.length > 0) attributes.hair = a.hair;
+      else delete attributes.hair;
+      if (a.vibe.length > 0) attributes.vibe = a.vibe;
+      else delete attributes.vibe;
+      if (a.wardrobe.length > 0) attributes.wardrobe = a.wardrobe;
+      else delete attributes.wardrobe;
+
+      get().updateFields(assetId, {
+        title: asset.title || a.summary_ko,
+        attributes,
+      });
+      get().select([assetId]);
     } finally {
       set({ analyzingAssetId: null });
     }
