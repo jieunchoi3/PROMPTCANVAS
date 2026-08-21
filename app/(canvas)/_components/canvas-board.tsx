@@ -169,7 +169,10 @@ export function CanvasBoard() {
             void state
               .analyzeAsset(asset.id)
               .then(() => toast.success(S.analysisDone))
-              .catch(() => toast.error(S.analysisFailed));
+              .catch((err) => {
+                const detail = err instanceof Error ? err.message : "";
+                toast.error(detail ? S.analysisFailedDetail(detail) : S.analysisFailed);
+              });
           }
         }
         return;

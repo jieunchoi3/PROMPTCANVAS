@@ -158,9 +158,12 @@ export function Inspector() {
               analysis={analyses[asset.id] ?? null}
               busy={analyzingAssetId === asset.id}
               onRun={() => {
-                void analyzeAsset(asset.id)
-                  .then(() => toast.success(S.analysisDone))
-                  .catch(() => toast.error(S.analysisFailed));
+            void analyzeAsset(asset.id)
+              .then(() => toast.success(S.analysisDone))
+              .catch((err) => {
+                const detail = err instanceof Error ? err.message : "";
+                toast.error(detail ? S.analysisFailedDetail(detail) : S.analysisFailed);
+              });
               }}
             />
           ) : (

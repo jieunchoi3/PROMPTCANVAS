@@ -1,12 +1,13 @@
 const GEMINI_MODELS = [
-  "gemini-2.0-flash",
+  "gemini-3.6-flash",
   "gemini-flash-latest",
   "gemini-2.5-flash",
+  "gemini-2.0-flash",
 ] as const;
 
 type GeminiResponse = {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
-  error?: { message?: string };
+  error?: { message?: string; status?: string };
 };
 
 export function geminiApiKey(): string | null {
@@ -37,11 +38,16 @@ export async function callGeminiJson(prompt: string, image?: { mimeType: string;
       }
       parts.push({ text: prompt });
 
+      // Auth keys (AQ.*) and current Gemini API docs require x-goog-api-key header.
+      // Query ?key= still works for older AIza keys, but fails for AQ. auth keys.
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
           body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
