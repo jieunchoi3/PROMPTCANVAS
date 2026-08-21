@@ -272,6 +272,21 @@ export function createLocalRepo(): LibraryRepo {
         await txDone(tx);
         next.push(prompts);
       }
+      if (!next.some((b) => b.kind === "video")) {
+        const video: Board = {
+          id: uuid(),
+          user_id,
+          name: S.videoBoard,
+          emoji: S.videoBoardEmoji,
+          kind: "video",
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        };
+        const tx = db.transaction("boards", "readwrite");
+        tx.objectStore("boards").put(video);
+        await txDone(tx);
+        next.push(video);
+      }
       return repairBoardKinds(next.sort((a, b) => a.created_at.localeCompare(b.created_at)));
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {

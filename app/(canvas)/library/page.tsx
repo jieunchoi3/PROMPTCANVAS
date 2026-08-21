@@ -13,12 +13,20 @@ import {
   filteredAssets,
   isPeopleBoard,
   isPromptsBoard,
+  isVideoBoard,
   isWardrobeBoard,
   useCanvas,
 } from "@/store/canvas-store";
 import { Inspector } from "../_components/inspector";
 import { BulkBar } from "../_components/bulk-bar";
 import { UndoToast } from "../_components/undo-toast";
+
+function formatClipDuration(ms: number) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function LibraryPage() {
   const assets = useCanvas((s) => s.assets);
@@ -136,7 +144,9 @@ export default function LibraryPage() {
                 ? S.noCharacters
                 : isWardrobeBoard(currentBoard)
                   ? S.noWardrobeAssets
-                  : S.emptyLibrary}
+                  : isVideoBoard(currentBoard)
+                    ? S.noVideoAssets
+                    : S.emptyLibrary}
           </div>
         ) : (
           <div
@@ -181,6 +191,11 @@ export default function LibraryPage() {
                       alt={asset.title ?? ""}
                       className="h-full w-full object-cover"
                     />
+                    {asset.kind === "video" && asset.duration_ms ? (
+                      <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-zinc-200">
+                        {formatClipDuration(asset.duration_ms)}
+                      </span>
+                    ) : null}
                   </div>
                   {!compact ? (
                     <div className="space-y-0.5 px-2 py-1.5">
@@ -219,7 +234,9 @@ export default function LibraryPage() {
       {selectedIds.length === 1 ? (
         <Inspector />
       ) : selectedIds.length > 1 &&
-        (isPeopleBoard(currentBoard) || isWardrobeBoard(currentBoard)) ? (
+        (isPeopleBoard(currentBoard) ||
+          isWardrobeBoard(currentBoard) ||
+          isVideoBoard(currentBoard)) ? (
         <BulkAttrPanel board={currentBoard} />
       ) : (
         <BoardSidepanel board={currentBoard} />

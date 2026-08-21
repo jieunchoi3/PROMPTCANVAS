@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters, attrMapToFilterValues } from "@/components/attribute-filters";
 import { BoardMovePicker } from "@/components/board-move-picker";
@@ -15,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { optionLabel } from "@/lib/attributes";
 import { formatDate } from "@/lib/env";
 import { S } from "@/lib/strings";
-import { isPeopleBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
 export function Inspector() {
   const selectedIds = useCanvas((s) => s.selectedIds);
@@ -49,7 +50,22 @@ export function Inspector() {
   const board = boards.find((b) => b.id === asset.board_id);
   const peopleBoard = isPeopleBoard(board);
   const wardrobeBoard = isWardrobeBoard(board);
-  const attrDefs = peopleBoard ? CHARACTER_ATTRIBUTES : wardrobeBoard ? WARDROBE_ATTRIBUTES : [];
+  const videoBoard = isVideoBoard(board);
+  const attrDefs = peopleBoard
+    ? CHARACTER_ATTRIBUTES
+    : wardrobeBoard
+      ? WARDROBE_ATTRIBUTES
+      : videoBoard
+        ? VIDEO_ATTRIBUTES
+        : [];
+
+  const attrSectionLabel = peopleBoard
+    ? S.peopleAttrs
+    : wardrobeBoard
+      ? S.wardrobeSection
+      : videoBoard
+        ? S.videoAttrs
+        : "";
 
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-white/10 bg-[#111113] px-3 py-3 text-[13px]">
@@ -118,7 +134,7 @@ export function Inspector() {
         <>
           <div className="mt-4 mb-1 flex items-center justify-between gap-2">
             <div className="text-[11px] uppercase tracking-wide text-zinc-500">
-              {peopleBoard ? S.peopleAttrs : S.wardrobeSection}
+              {attrSectionLabel}
             </div>
             {peopleBoard && asset.kind === "image" ? (
               <Button

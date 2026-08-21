@@ -157,8 +157,8 @@ type CanvasState = {
   deletePromptSheet: (id: string) => Promise<void>;
   uploadPromptPreview: (id: string, file: File | null) => Promise<void>;
   analyzeAsset: (assetId: string) => Promise<void>;
-  analyzeWardrobeAsset: (assetId: string) => Promise<void>;
-  analyzeCharacterAsset: (assetId: string) => Promise<void>;
+  analyzeWardrobeAsset: (assetId: string, opts?: { silent?: boolean }) => Promise<void>;
+  analyzeCharacterAsset: (assetId: string, opts?: { silent?: boolean }) => Promise<void>;
   applyAnalysis: (
     assetId: string,
     opts: { prompt: boolean; tags: boolean },
@@ -814,10 +814,11 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     }
   },
 
-  analyzeWardrobeAsset: async (assetId) => {
+  analyzeWardrobeAsset: async (assetId, opts) => {
+    const silent = Boolean(opts?.silent);
     const asset = get().assets.find((a) => a.id === assetId);
     if (!asset || asset.kind !== "image") return;
-    set({ analyzingAssetId: assetId });
+    if (!silent) set({ analyzingAssetId: assetId });
     try {
       const src = asset.thumbUrl || asset.url;
       const { data, mimeType } = await fetchImageBase64(src);
@@ -845,19 +846,24 @@ export const useCanvas = create<CanvasState>((set, get) => ({
         title: asset.title || a.summary_ko,
         attributes,
       });
-      get().select([assetId]);
-      for (const tagName of a.suggested_tags.slice(0, 8)) {
-        await get().addTagToSelection(tagName, "free");
+      if (!silent) {
+        get().select([assetId]);
+        for (const tagName of a.suggested_tags.slice(0, 8)) {
+          await get().addTagToSelection(tagName, "free");
+        }
+      } else {
+        await addTagsToAssets(get, set, [assetId], a.suggested_tags.slice(0, 8), "free");
       }
     } finally {
-      set({ analyzingAssetId: null });
+      if (!silent) set({ analyzingAssetId: null });
     }
   },
 
-  analyzeCharacterAsset: async (assetId) => {
+  analyzeCharacterAsset: async (assetId, opts) => {
+    const silent = Boolean(opts?.silent);
     const asset = get().assets.find((a) => a.id === assetId);
     if (!asset || asset.kind !== "image") return;
-    set({ analyzingAssetId: assetId });
+    if (!silent) set({ analyzingAssetId: assetId });
     try {
       const src = asset.thumbUrl || asset.url;
       const { data, mimeType } = await fetchImageBase64(src);
@@ -892,9 +898,9 @@ export const useCanvas = create<CanvasState>((set, get) => ({
         title: asset.title || a.summary_ko,
         attributes,
       });
-      get().select([assetId]);
+      if (!silent) get().select([assetId]);
     } finally {
-      set({ analyzingAssetId: null });
+      if (!silent) set({ analyzingAssetId: null });
     }
   },
 
@@ -926,6 +932,43 @@ export const useCanvas = create<CanvasState>((set, get) => ({
 
 type SetFn = (partial: Partial<CanvasState> | ((s: CanvasState) => Partial<CanvasState>)) => void;
 type GetFn = () => CanvasState;
+
+async function addTagsToAssets(
+  get: GetFn,
+  set: SetFn,
+  assetIds: string[],
+  names: string[],
+  kind: Tag["kind"] = "free",
+) {
+  if (assetIds.length === 0 || names.length === 0) return;
+  const repo = getRepo();
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+    const tag = await repo.upsertTag(trimmed, kind, null);
+    const missing = assetIds.filter(
+      (id) => !get().assetTags.some((at) => at.asset_id === id && at.tag_id === tag.id),
+    );
+    if (missing.length === 0) continue;
+    await Promise.all(missing.map((id) => repo.addAssetTag(id, tag.id)));
+    const tags = get().tags.some((t) => t.id === tag.id)
+      ? get().tags.map((t) =>
+          t.id === tag.id ? { ...t, use_count: t.use_count + missing.length } : t,
+        )
+      : [...get().tags, { ...tag, use_count: missing.length }];
+    set({
+      tags,
+      assetTags: [
+        ...get().assetTags,
+        ...missing.map((asset_id) => ({
+          asset_id,
+          tag_id: tag.id,
+          source: "ai" as const,
+        })),
+      ],
+    });
+  }
+}
 
 async function applyInverse(entry: HistoryEntry, set: SetFn, get: GetFn) {
   const repo = getRepo();
@@ -1084,7 +1127,7 @@ export function filteredAssets(state: CanvasState): Asset[] {
   return list;
 }
 
-export { isPeopleBoard, isWardrobeBoard, isPromptsBoard } from "@/lib/board-kind";
+export { isPeopleBoard, isWardrobeBoard, isPromptsBoard, isVideoBoard } from "@/lib/board-kind";
 
 export function filteredPromptSheets(state: CanvasState): PromptSheet[] {
   const { filterSheetTypes } = state;

@@ -12,7 +12,7 @@ export type TagKind =
 
 export type TagSource = "user" | "ai";
 
-export type BoardKind = "canvas" | "characters" | "wardrobe" | "prompts";
+export type BoardKind = "canvas" | "characters" | "wardrobe" | "prompts" | "video";
 
 export type Board = {
   id: string;

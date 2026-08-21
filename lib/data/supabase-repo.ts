@@ -114,6 +114,20 @@ export function createSupabaseRepo(): LibraryRepo {
           if (prErr) throw prErr;
           boards.push(prompts as Board);
         }
+        if (!boards.some((b) => b.kind === "video")) {
+          const { data: video, error: vErr } = await supabase
+            .from("boards")
+            .insert({
+              user_id,
+              name: S.videoBoard,
+              emoji: S.videoBoardEmoji,
+              kind: "video",
+            })
+            .select("*")
+            .single();
+          if (vErr) throw vErr;
+          boards.push(video as Board);
+        }
         return boards;
       }
       const { data: created, error: insertError } = await supabase
@@ -160,7 +174,18 @@ export function createSupabaseRepo(): LibraryRepo {
         .select("*")
         .single();
       if (prErr) throw prErr;
-      return [created as Board, people as Board, wardrobe as Board, prompts as Board];
+      const { data: video, error: vErr } = await supabase
+        .from("boards")
+        .insert({
+          user_id,
+          name: S.videoBoard,
+          emoji: S.videoBoardEmoji,
+          kind: "video",
+        })
+        .select("*")
+        .single();
+      if (vErr) throw vErr;
+      return [created as Board, people as Board, wardrobe as Board, prompts as Board, video as Board];
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {
       const user_id = await workspaceUserId();

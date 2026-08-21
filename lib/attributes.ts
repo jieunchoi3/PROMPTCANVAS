@@ -1,4 +1,5 @@
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import type { AttributeMap } from "@/lib/types";
 
@@ -9,7 +10,7 @@ type AttrDef = {
 };
 
 function allDefs(): readonly AttrDef[] {
-  return [...CHARACTER_ATTRIBUTES, ...WARDROBE_ATTRIBUTES];
+  return [...CHARACTER_ATTRIBUTES, ...WARDROBE_ATTRIBUTES, ...VIDEO_ATTRIBUTES];
 }
 
 export function attrValues(map: AttributeMap | undefined, key: string): string[] {

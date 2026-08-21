@@ -13,7 +13,7 @@ import {
 import { ingestFiles, ingestUrl } from "@/lib/ingest";
 import { isMod, isTypingTarget, looksLikeUrl } from "@/lib/env";
 import { S } from "@/lib/strings";
-import { filteredAssets, isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import { filteredAssets, isPeopleBoard, isPromptsBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 import { AssetNode } from "./asset-node";
 import { BulkBar } from "./bulk-bar";
 import { CanvasViewport } from "./canvas-viewport";
@@ -166,7 +166,13 @@ export function CanvasBoard() {
         if (state.selectedIds.length === 1) {
           const asset = state.assets.find((a) => a.id === state.selectedIds[0]);
           const board = state.boards.find((b) => b.id === state.boardId);
-          if (asset?.kind === "image" && board && !isPeopleBoard(board) && !isWardrobeBoard(board)) {
+          if (
+            asset?.kind === "image" &&
+            board &&
+            !isPeopleBoard(board) &&
+            !isWardrobeBoard(board) &&
+            !isVideoBoard(board)
+          ) {
             void state
               .analyzeAsset(asset.id)
               .then(() => toast.success(S.analysisDone))
@@ -298,7 +304,9 @@ export function CanvasBoard() {
       {selectedIds.length === 1 ? (
         <Inspector />
       ) : selectedIds.length > 1 &&
-        (isPeopleBoard(currentBoard) || isWardrobeBoard(currentBoard)) ? (
+        (isPeopleBoard(currentBoard) ||
+          isWardrobeBoard(currentBoard) ||
+          isVideoBoard(currentBoard)) ? (
         <BulkAttrPanel board={currentBoard} />
       ) : (
         <BoardSidepanel board={currentBoard} />

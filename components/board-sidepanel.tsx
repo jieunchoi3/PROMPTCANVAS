@@ -1,6 +1,7 @@
 "use client";
 
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters } from "@/components/attribute-filters";
 import { Button } from "@/components/ui/button";
@@ -19,21 +20,37 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
   const selectCharacter = useCanvas((s) => s.selectCharacter);
   const deleteCharacter = useCanvas((s) => s.deleteCharacter);
   const kind = resolveBoardKind(board);
-  const defs = kind === "characters" ? CHARACTER_ATTRIBUTES : WARDROBE_ATTRIBUTES;
+  const defs =
+    kind === "characters"
+      ? CHARACTER_ATTRIBUTES
+      : kind === "wardrobe"
+        ? WARDROBE_ATTRIBUTES
+        : kind === "video"
+          ? VIDEO_ATTRIBUTES
+          : [];
 
-  if (!board || (kind !== "characters" && kind !== "wardrobe")) {
+  if (!board || (kind !== "characters" && kind !== "wardrobe" && kind !== "video")) {
     return null;
   }
+
+  const title =
+    kind === "characters"
+      ? S.peopleBoard
+      : kind === "wardrobe"
+        ? S.wardrobeBoard
+        : S.videoBoard;
+  const hint =
+    kind === "characters"
+      ? S.peopleHint
+      : kind === "wardrobe"
+        ? S.wardrobeHint
+        : S.videoHint;
 
   return (
     <aside className="w-72 shrink-0 border-l border-white/10 bg-[#111113] p-3">
       <div className="mb-3">
-        <div className="text-sm text-zinc-200">
-          {kind === "characters" ? S.peopleBoard : S.wardrobeBoard}
-        </div>
-        <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
-          {kind === "characters" ? S.peopleHint : S.wardrobeHint}
-        </p>
+        <div className="text-sm text-zinc-200">{title}</div>
+        <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{hint}</p>
       </div>
       <AttributeFilters defs={defs} values={attrFilters} onToggle={toggleAttrFilter} compact />
       <div className="mt-3 flex flex-wrap gap-1">

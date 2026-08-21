@@ -7,7 +7,7 @@ import { TagPicker } from "@/components/tag-picker";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { S } from "@/lib/strings";
-import { isPeopleBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
 export function BulkBar() {
   const selectedIds = useCanvas((s) => s.selectedIds);
@@ -20,7 +20,10 @@ export function BulkBar() {
   const [tagOpen, setTagOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const currentBoard = boards.find((b) => b.id === boardId);
-  const showCanvasTags = !isPeopleBoard(currentBoard) && !isWardrobeBoard(currentBoard);
+  const showCanvasTags =
+    !isPeopleBoard(currentBoard) &&
+    !isWardrobeBoard(currentBoard) &&
+    !isVideoBoard(currentBoard);
 
   if (selectedIds.length === 0) return null;
 

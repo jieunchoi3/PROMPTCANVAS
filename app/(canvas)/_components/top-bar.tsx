@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, LayoutGrid, Plus, Search, Upload } from "lucide-react";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
+import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,13 @@ import { cn } from "@/lib/utils";
 import { AttrTopFilters, TagTopFilters } from "@/components/top-hierarchical-filters";
 import { TagManager } from "@/components/tag-manager";
 import { hasAttrFilters } from "@/lib/attributes";
-import { isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import {
+  isPeopleBoard,
+  isPromptsBoard,
+  isVideoBoard,
+  isWardrobeBoard,
+  useCanvas,
+} from "@/store/canvas-store";
 
 export function TopBar() {
   const pathname = usePathname();
@@ -41,12 +48,15 @@ export function TopBar() {
   const current = boards.find((b) => b.id === boardId);
   const peopleBoard = isPeopleBoard(current);
   const wardrobeBoard = isWardrobeBoard(current);
+  const videoBoard = isVideoBoard(current);
   const promptsBoard = isPromptsBoard(current);
   const attrCategoryDefs = peopleBoard
     ? CHARACTER_ATTRIBUTES
     : wardrobeBoard
       ? WARDROBE_ATTRIBUTES
-      : null;
+      : videoBoard
+        ? VIDEO_ATTRIBUTES
+        : null;
   const showHierarchicalFilters = !promptsBoard;
   const filtersActive =
     filterKinds.length > 0 ||

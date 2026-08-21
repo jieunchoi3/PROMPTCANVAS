@@ -3,6 +3,9 @@ import {
   DEFAULT_ASSET_W,
   UPLOAD_CONCURRENCY,
 } from "@/lib/constants";
+import { enqueueAutoClassify } from "@/lib/auto-classify";
+import { isPeopleBoard, isVideoBoard, isWardrobeBoard } from "@/lib/board-kind";
+import { inferVideoAttributes } from "@/config/video-attributes";
 import { assetRect, findFreePositions, screenToWorld } from "@/lib/canvas-geometry";
 import { getRepo } from "@/lib/data/get-repo";
 import { hashFile } from "@/lib/hash";
@@ -165,6 +168,23 @@ export async function ingestFiles(
             u.id === item.id ? { ...u, progress: 100 } : u,
           ),
         );
+
+        const board = useCanvas.getState().boards.find((b) => b.id === boardId);
+        if (asset.kind === "image") {
+          if (isPeopleBoard(board)) enqueueAutoClassify(asset.id, "character");
+          else if (isWardrobeBoard(board)) enqueueAutoClassify(asset.id, "wardrobe");
+        } else if (asset.kind === "video" && isVideoBoard(board)) {
+          const inferred = inferVideoAttributes(
+            asset.width,
+            asset.height,
+            asset.duration_ms,
+          );
+          if (Object.keys(inferred).length > 0) {
+            useCanvas.getState().updateFields(asset.id, {
+              attributes: { ...asset.attributes, ...inferred },
+            });
+          }
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "upload failed";
         useCanvas.getState().setUploads(
