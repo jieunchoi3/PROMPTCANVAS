@@ -576,14 +576,26 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     const fromBoardId = get().boardId;
     if (ids.length === 0 || !fromBoardId || targetBoardId === fromBoardId) return;
 
+    const targetBoard = get().boards.find((board) => board.id === targetBoardId);
+    if (!targetBoard) {
+      toast.error(S.moveBoardMissing);
+      return;
+    }
+
     const idSet = new Set(ids);
     const moving = get().assets.filter((asset) => idSet.has(asset.id));
     if (moving.length === 0) return;
 
     const snapshots = moving.map((asset) => ({ ...asset, board_id: targetBoardId }));
-    await getRepo().updateAssets(
-      moving.map((asset) => ({ id: asset.id, fields: { board_id: targetBoardId } })),
-    );
+    try {
+      await getRepo().updateAssets(
+        moving.map((asset) => ({ id: asset.id, fields: { board_id: targetBoardId } })),
+      );
+    } catch (err) {
+      console.error("[canvas] board move failed", err);
+      toast.error(S.moveBoardFailed);
+      return;
+    }
 
     set({
       assets: get().assets.filter((asset) => !idSet.has(asset.id)),
@@ -596,8 +608,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       toBoardId: targetBoardId,
     });
 
-    const targetBoard = get().boards.find((board) => board.id === targetBoardId);
-    toast.success(S.movedToBoard(moving.length, targetBoard?.name ?? S.board));
+    toast.success(S.movedToBoard(moving.length, targetBoard.name));
   },
 
   undo: async () => {

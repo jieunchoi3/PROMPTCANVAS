@@ -113,35 +113,6 @@ export function Inspector() {
         </div>
       ) : null}
 
-      <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-        {S.inspectorTags}
-      </div>
-      <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
-        {S.inspectorTagsHint}
-      </p>
-      <TagPicker
-        activeIds={linkedIds}
-        onToggle={(id) => void toggleTagOnSelection(id)}
-      />
-
-      <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-        {S.inspectorReverse}
-      </div>
-      {asset.kind === "image" && !peopleBoard && !wardrobeBoard ? (
-        <ReverseAnalysisPanel
-          assetId={asset.id}
-          analysis={analyses[asset.id] ?? null}
-          busy={analyzingAssetId === asset.id}
-          onRun={() => {
-            void analyzeAsset(asset.id)
-              .then(() => toast.success(S.analysisDone))
-              .catch(() => toast.error(S.analysisFailed));
-          }}
-        />
-      ) : (
-        <p className="text-[11px] text-zinc-500">{S.inspectorReverseSoon}</p>
-      )}
-
       {attrDefs.length > 0 ? (
         <>
           <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
@@ -165,7 +136,38 @@ export function Inspector() {
             )}
           </div>
         </>
-      ) : null}
+      ) : (
+        <>
+          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+            {S.inspectorTags}
+          </div>
+          <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+            {S.inspectorTagsHint}
+          </p>
+          <TagPicker
+            activeIds={linkedIds}
+            onToggle={(id) => void toggleTagOnSelection(id)}
+          />
+
+          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+            {S.inspectorReverse}
+          </div>
+          {asset.kind === "image" ? (
+            <ReverseAnalysisPanel
+              assetId={asset.id}
+              analysis={analyses[asset.id] ?? null}
+              busy={analyzingAssetId === asset.id}
+              onRun={() => {
+                void analyzeAsset(asset.id)
+                  .then(() => toast.success(S.analysisDone))
+                  .catch(() => toast.error(S.analysisFailed));
+              }}
+            />
+          ) : (
+            <p className="text-[11px] text-zinc-500">{S.inspectorReverseSoon}</p>
+          )}
+        </>
+      )}
 
       {peopleBoard ? (
         <Button
@@ -194,6 +196,20 @@ export function Inspector() {
         </Button>
       ) : null}
 
+      <Popover open={boardMoveOpen} onOpenChange={setBoardMoveOpen}>
+        <PopoverTrigger className="mt-4 inline-flex h-7 w-full items-center justify-center rounded-md border border-white/10 bg-white/5 text-[12px] text-zinc-200 hover:bg-white/10">
+          {S.bulkMove}
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-2" align="end" side="top">
+          <BoardMovePicker
+            onPick={(targetBoardId) => {
+              setBoardMoveOpen(false);
+              void moveSelectionToBoard(targetBoardId);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+
       <div className="mt-4 space-y-1.5 text-[12px] text-zinc-400">
         <div className="text-[11px] uppercase tracking-wide text-zinc-500">
           {S.inspectorMeta}
@@ -204,23 +220,8 @@ export function Inspector() {
         <div>
           {S.added}: {formatDate(asset.created_at)}
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span>
-            {S.board}: {board ? `${board.emoji} ${board.name}` : S.none}
-          </span>
-          <Popover open={boardMoveOpen} onOpenChange={setBoardMoveOpen}>
-            <PopoverTrigger className="shrink-0 text-[11px] text-zinc-500 hover:text-zinc-300">
-              {S.bulkMove}
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2" align="end" side="top">
-              <BoardMovePicker
-                onPick={(boardId) => {
-                  setBoardMoveOpen(false);
-                  void moveSelectionToBoard(boardId);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+        <div>
+          {S.board}: {board ? `${board.emoji} ${board.name}` : S.none}
         </div>
         <div>
           {S.group}: {S.none}

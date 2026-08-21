@@ -122,6 +122,10 @@ export const S = {
   moveToBoard: "이동할 보드",
   movedToBoard: (n: number, board: string) =>
     n === 1 ? `「${board}」 보드로 옮겼어요` : `${n}장을 「${board}」 보드로 옮겼어요`,
+  moveBoardFailed: "보드로 옮기지 못했어요. 다시 시도해 주세요.",
+  moveBoardMissing: "이동할 보드를 찾을 수 없어요.",
+  moveBoardEmpty: "이동할 다른 보드가 없어요. 먼저 보드를 만들어 주세요.",
+  noOtherBoards: "다른 보드가 없어요",
 
   undo: "실행 취소",
   deleted: (n: number) => (n === 1 ? "1장 삭제했어요" : `${n}장 삭제했어요`),

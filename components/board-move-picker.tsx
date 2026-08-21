@@ -19,7 +19,7 @@ export function BoardMovePicker({
   );
 
   if (destinations.length === 0) {
-    return <p className="text-[12px] text-zinc-500">{S.commandEmpty}</p>;
+    return <p className="text-[12px] text-zinc-500">{S.moveBoardEmpty}</p>;
   }
 
   return (

@@ -12,7 +12,7 @@ import {
 import { ingestFiles, ingestUrl } from "@/lib/ingest";
 import { isMod, isTypingTarget, looksLikeUrl } from "@/lib/env";
 import { S } from "@/lib/strings";
-import { filteredAssets, isPeopleBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
+import { filteredAssets, isPeopleBoard, isPromptsBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 import { AssetNode } from "./asset-node";
 import { BulkBar } from "./bulk-bar";
 import { CanvasViewport } from "./canvas-viewport";
@@ -133,6 +133,28 @@ export function CanvasBoard() {
         return;
       }
       if (typing) return;
+      if (e.key === "m" || e.key === "M") {
+        const state = useCanvas.getState();
+        if (state.selectedIds.length === 0) return;
+        const destinations = state.boards.filter(
+          (board) => board.id !== state.boardId && !isPromptsBoard(board),
+        );
+        if (destinations.length === 0) {
+          toast(S.moveBoardEmpty);
+          return;
+        }
+        const labels = destinations.map((b, i) => `${i + 1}. ${b.emoji} ${b.name}`).join("\n");
+        const answer = window.prompt(`${S.moveToBoard}\n${labels}`, "1");
+        if (!answer) return;
+        const index = Number.parseInt(answer, 10) - 1;
+        const target = destinations[index] ?? destinations.find((b) => b.name === answer.trim());
+        if (!target) {
+          toast.error(S.moveBoardMissing);
+          return;
+        }
+        void state.moveSelectionToBoard(target.id);
+        return;
+      }
       if (e.key === "t" || e.key === "T") {
         const name = window.prompt(S.tagPlaceholder);
         if (name) void useCanvas.getState().addTagToSelection(name);
