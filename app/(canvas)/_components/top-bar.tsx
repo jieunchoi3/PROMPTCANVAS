@@ -47,46 +47,53 @@ export function TopBar() {
     : wardrobeBoard
       ? WARDROBE_ATTRIBUTES
       : null;
+  const showHierarchicalFilters = !promptsBoard;
+  const filtersActive =
+    filterKinds.length > 0 ||
+    filterCustomTabs.length > 0 ||
+    filterSheetTypes.length > 0 ||
+    filterTagIds.length > 0 ||
+    hasAttrFilters(attrFilters);
 
   return (
-    <header className="flex min-h-10 shrink-0 items-start gap-2 border-b border-white/10 bg-[#0B0B0D] px-2 py-1.5 text-[13px]">
-      <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-zinc-200 hover:bg-white/5">
-          <span>{current ? `${current.emoji} ${current.name}` : S.defaultBoard}</span>
-          <ChevronDown className="size-3.5 opacity-50" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {boards.map((b) => (
+    <header className="flex shrink-0 flex-col gap-1.5 border-b border-white/10 bg-[#0B0B0D] px-2 py-1.5 text-[13px]">
+      <div className="flex min-h-7 items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-zinc-200 hover:bg-white/5">
+            <span>{current ? `${current.emoji} ${current.name}` : S.defaultBoard}</span>
+            <ChevronDown className="size-3.5 opacity-50" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {boards.map((b) => (
+              <DropdownMenuItem
+                key={b.id}
+                onClick={() => void useCanvas.getState().setBoard(b.id)}
+              >
+                {b.emoji} {b.name}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem
-              key={b.id}
-              onClick={() => void useCanvas.getState().setBoard(b.id)}
+              onClick={() => {
+                const name = window.prompt(S.boardName, S.defaultBoard);
+                if (name) void useCanvas.getState().createBoard(name, "✦");
+              }}
             >
-              {b.emoji} {b.name}
+              {S.newBoard}
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              const name = window.prompt(S.boardName, S.defaultBoard);
-              if (name) void useCanvas.getState().createBoard(name, "✦");
-            }}
-          >
-            {S.newBoard}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <button
-        type="button"
-        onClick={() => useCanvas.getState().setCommandOpen(true)}
-        className="flex h-7 min-w-44 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 text-zinc-500 hover:text-zinc-300"
-      >
-        <Search className="size-3.5" />
-        <span>{S.searchPlaceholder}</span>
-        <kbd className="ml-auto text-[10px] text-zinc-600">⌘K</kbd>
-      </button>
+        <button
+          type="button"
+          onClick={() => useCanvas.getState().setCommandOpen(true)}
+          className="flex h-7 min-w-44 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 text-zinc-500 hover:text-zinc-300"
+        >
+          <Search className="size-3.5" />
+          <span>{S.searchPlaceholder}</span>
+          <kbd className="ml-auto text-[10px] text-zinc-600">⌘K</kbd>
+        </button>
 
-      <div className="flex min-w-0 flex-1 items-start gap-1">
         {promptsBoard ? (
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {PROMPT_SHEET_TYPES.map((type) => {
@@ -108,96 +115,103 @@ export function TopBar() {
               );
             })}
           </div>
-        ) : attrCategoryDefs ? (
-          <AttrTopFilters defs={attrCategoryDefs} />
         ) : (
-          <TagTopFilters customTopCategories={customTopCategories} />
+          <div className="min-w-0 flex-1" />
         )}
-        {!promptsBoard && !attrCategoryDefs ? (
-          <div className="flex shrink-0 items-center gap-1 pt-0.5">
-            <button
-              type="button"
-              aria-label={S.addCustomTab}
-              title={S.addCustomTab}
-              onClick={() => {
-                const label = window.prompt(S.addCustomTabPh);
-                if (label?.trim()) void addCustomTopCategory(label);
-              }}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-            >
-              <Plus className="size-3.5" />
-            </button>
-            <TagManager>{S.tagManage}</TagManager>
-          </div>
-        ) : null}
-        {(filterKinds.length > 0 ||
-          filterCustomTabs.length > 0 ||
-          filterSheetTypes.length > 0 ||
-          filterTagIds.length > 0 ||
-          hasAttrFilters(attrFilters)) ? (
+
+        {filtersActive ? (
           <button
             type="button"
             onClick={() => {
               useCanvas.getState().clearFilters();
               useCanvas.getState().clearAttrFilters();
             }}
-            className="h-6 shrink-0 px-1 pt-0.5 text-[11px] text-zinc-500 hover:text-zinc-300"
+            className="h-6 shrink-0 px-1 text-[11px] text-zinc-500 hover:text-zinc-300"
           >
             {S.clearFilters}
           </button>
         ) : null}
-      </div>
 
-      <span className="hidden h-7 items-center text-[11px] text-zinc-600 sm:inline-flex">
-        {mode === "local" ? S.localMode : S.cloudMode}
-      </span>
+        <span className="hidden text-[11px] text-zinc-600 sm:inline">
+          {mode === "local" ? S.localMode : S.cloudMode}
+        </span>
 
-      <Link
-        href={pathname === "/library" ? "/" : "/library"}
-        className={cn(
-          "inline-flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-white/5",
-          pathname === "/library" ? "text-[#D9B382]" : "text-zinc-400",
-        )}
-        aria-label={pathname === "/library" ? S.canvas : S.library}
-      >
-        <LayoutGrid className="size-4" />
-      </Link>
-
-      {promptsBoard ? (
-        <Button
-          size="sm"
-          className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-          onClick={() => {
-            const activeType = filterSheetTypes[0];
-            void createPromptSheet(activeType);
-          }}
+        <Link
+          href={pathname === "/library" ? "/" : "/library"}
+          className={cn(
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-white/5",
+            pathname === "/library" ? "text-[#D9B382]" : "text-zinc-400",
+          )}
+          aria-label={pathname === "/library" ? S.canvas : S.library}
         >
-          {S.newPrompt}
-        </Button>
-      ) : (
-        <>
+          <LayoutGrid className="size-4" />
+        </Link>
+
+        {promptsBoard ? (
           <Button
             size="sm"
             className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-            onClick={() => inputRef.current?.click()}
-          >
-            <Upload className="size-3.5" />
-            {S.upload}
-          </Button>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept={ACCEPT_ATTR}
-            className="hidden"
-            onChange={(e) => {
-              const files = [...(e.target.files ?? [])];
-              e.target.value = "";
-              if (files.length) void ingestFiles(files, "center");
+            onClick={() => {
+              const activeType = filterSheetTypes[0];
+              void createPromptSheet(activeType);
             }}
-          />
-        </>
-      )}
+          >
+            {S.newPrompt}
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
+              onClick={() => inputRef.current?.click()}
+            >
+              <Upload className="size-3.5" />
+              {S.upload}
+            </Button>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept={ACCEPT_ATTR}
+              className="hidden"
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])];
+                e.target.value = "";
+                if (files.length) void ingestFiles(files, "center");
+              }}
+            />
+          </>
+        )}
+      </div>
+
+      {showHierarchicalFilters ? (
+        <div className="flex min-w-0 items-start gap-1">
+          <div className="min-w-0 flex-1">
+            {attrCategoryDefs ? (
+              <AttrTopFilters defs={attrCategoryDefs} />
+            ) : (
+              <TagTopFilters customTopCategories={customTopCategories} />
+            )}
+          </div>
+          {!attrCategoryDefs ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                aria-label={S.addCustomTab}
+                title={S.addCustomTab}
+                onClick={() => {
+                  const label = window.prompt(S.addCustomTabPh);
+                  if (label?.trim()) void addCustomTopCategory(label);
+                }}
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+              >
+                <Plus className="size-3.5" />
+              </button>
+              <TagManager>{S.tagManage}</TagManager>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </header>
   );
 }

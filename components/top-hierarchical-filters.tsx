@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { mergeTopTabs, tagMatchesTopTab, type TopCategoryTab } from "@/lib/top-categories";
 import type { Tag } from "@/lib/types";
@@ -18,18 +18,25 @@ const pillOn = "bg-[#D9B382] text-[#0B0B0D]";
 const pillOff = "bg-white/5 text-zinc-400 hover:bg-white/10";
 const pillCategoryOn = "bg-white/15 text-zinc-100 ring-1 ring-[#D9B382]/40";
 const scrollRow =
-  "flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "flex w-full min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export function AttrTopFilters({ defs }: { defs: readonly AttrDef[] }) {
   const attrFilters = useCanvas((s) => s.attrFilters);
   const toggleAttrFilter = useCanvas((s) => s.toggleAttrFilter);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
+  // Keep the matching category open when a subcategory filter is active.
+  useEffect(() => {
+    if (expandedKey) return;
+    const active = defs.find((attr) => (attrFilters[attr.key] ?? []).length > 0);
+    if (active) setExpandedKey(active.key);
+  }, [attrFilters, defs, expandedKey]);
+
   const expanded = defs.find((attr) => attr.key === expandedKey) ?? null;
   const activeValues = expanded ? (attrFilters[expanded.key] ?? []) : [];
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
+    <div className="flex w-full min-w-0 flex-col gap-1.5">
       <div className={scrollRow}>
         {defs.map((attr) => {
           const values = attrFilters[attr.key] ?? [];
@@ -84,7 +91,7 @@ export function TagTopFilters({
   const activeIds = new Set(filterTagIds);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
+    <div className="flex w-full min-w-0 flex-col gap-1.5">
       <div className={scrollRow}>
         {tabs.map((tab) => (
           <TagCategoryButton
