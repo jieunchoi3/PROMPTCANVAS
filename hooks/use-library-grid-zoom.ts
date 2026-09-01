@@ -63,5 +63,5 @@ export function useLibraryGridZoom() {
     return () => node.removeEventListener("wheel", onWheel);
   }, [node, setAndStore]);
 
-  return { cellSize, containerRef, setCellSize: setAndStore };
+  return { cellSize, containerRef, containerEl: node, setCellSize: setAndStore };
 }

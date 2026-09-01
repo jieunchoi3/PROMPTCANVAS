@@ -4,15 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BoardSidepanel } from "@/components/board-sidepanel";
 import { BulkAttrPanel } from "@/components/bulk-attr-panel";
+import { AssetLightbox } from "@/components/asset-lightbox";
 import { CULL_PAD } from "@/lib/constants";
 import {
   fitCamera,
   intersectsViewport,
   selectionBounds,
 } from "@/lib/canvas-geometry";
-import { ingestFiles, ingestUrl } from "@/lib/ingest";
-import { isMod, isTypingTarget, looksLikeUrl } from "@/lib/env";
+import { isMod, isTypingTarget } from "@/lib/env";
 import { S } from "@/lib/strings";
+import { useAssetIngest } from "@/hooks/use-asset-ingest";
 import { filteredAssets, isPeopleBoard, isPromptsBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 import { AssetNode } from "./asset-node";
 import { BulkBar } from "./bulk-bar";
@@ -24,7 +25,6 @@ import { UploadQueue } from "./upload-queue";
 
 export function CanvasBoard() {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   useCanvasGestures(viewportRef);
 
@@ -206,75 +206,15 @@ export function CanvasBoard() {
     };
   }, [assets, camera, selected, selectedIds, visible]);
 
-  useEffect(() => {
-    async function onPaste(e: ClipboardEvent) {
-      if (isTypingTarget(e.target)) return;
-      const items = e.clipboardData;
-      if (!items) return;
-      const files: File[] = [];
-      for (const item of items.items) {
-        if (item.type.startsWith("image/") || item.type.startsWith("video/")) {
-          const file = item.getAsFile();
-          if (file) files.push(file);
-        }
-      }
-      if (files.length > 0) {
-        e.preventDefault();
-        const el = viewportRef.current;
-        const r = el?.getBoundingClientRect();
-        await ingestFiles(
-          files,
-          r
-            ? { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }
-            : "center",
-        );
-        return;
-      }
-      const text = items.getData("text/plain").trim();
-      if (!text) return;
-      if (looksLikeUrl(text)) {
-        e.preventDefault();
-        await ingestUrl(text, "center");
-        return;
-      }
-      const state = useCanvas.getState();
-      if (state.selectedIds.length === 1) {
-        e.preventDefault();
-        toast(S.pastePromptOffer, {
-          action: {
-            label: S.pastePrompt,
-            onClick: () => {
-              const id = state.selectedIds[0];
-              if (id) state.updateFields(id, { prompt: text });
-            },
-          },
-        });
-      }
-    }
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, []);
-
-  function onDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(true);
-  }
-
-  async function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    const files = [...e.dataTransfer.files];
-    if (files.length) await ingestFiles(files, { clientX: e.clientX, clientY: e.clientY });
-  }
-
   const lightbox = assets.find((a) => a.id === lightboxId);
+  const { dragging, onDragOver, onDragLeave, onDrop } = useAssetIngest(viewportRef);
 
   return (
     <div className="flex h-full min-h-0">
       <div
         className="relative min-w-0 flex-1"
         onDragOver={onDragOver}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={onDragLeave}
         onDrop={(e) => void onDrop(e)}
       >
         <CanvasViewport viewportRef={viewportRef}>
@@ -311,29 +251,7 @@ export function CanvasBoard() {
       ) : (
         <BoardSidepanel board={currentBoard} />
       )}
-      {lightbox ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-50 grid place-items-center bg-black/85"
-          onClick={() => setLightboxId(null)}
-        >
-          {lightbox.kind === "video" ? (
-            <video
-              src={lightbox.url}
-              controls
-              autoPlay
-              className="max-h-[90vh] max-w-[90vw]"
-            />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={lightbox.url}
-              alt={lightbox.title ?? ""}
-              className="max-h-[90vh] max-w-[90vw] object-contain"
-            />
-          )}
-        </button>
-      ) : null}
+      <AssetLightbox asset={lightbox} />
     </div>
   );
 }

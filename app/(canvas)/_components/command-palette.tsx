@@ -38,7 +38,7 @@ export function CommandPalette() {
           <CommandGroup heading={S.commandActions}>
             <CommandItem
               onSelect={() => {
-                router.push("/");
+                router.push("/canvas");
                 setCommandOpen(false);
               }}
             >
@@ -46,7 +46,7 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               onSelect={() => {
-                router.push("/library");
+                router.push("/");
                 setCommandOpen(false);
               }}
             >

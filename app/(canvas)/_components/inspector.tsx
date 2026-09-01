@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { optionLabel } from "@/lib/attributes";
 import { formatDate } from "@/lib/env";
+import { downloadAsset } from "@/lib/download-asset";
 import { S } from "@/lib/strings";
 import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
@@ -251,6 +252,19 @@ export function Inspector() {
           />
         </PopoverContent>
       </Popover>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-2 h-7 w-full"
+        onClick={() => {
+          void downloadAsset(asset)
+            .then(() => toast.success(S.downloaded(1)))
+            .catch(() => toast.error(S.downloadFailed));
+        }}
+      >
+        {S.download}
+      </Button>
 
       <div className="mt-4 space-y-1.5 text-[12px] text-zinc-400">
         <div className="text-[11px] uppercase tracking-wide text-zinc-500">

@@ -147,12 +147,14 @@ export function TopBar() {
         </span>
 
         <Link
-          href={pathname === "/library" ? "/" : "/library"}
+          href={pathname === "/" || pathname === "/library" ? "/canvas" : "/"}
           className={cn(
             "inline-flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-white/5",
-            pathname === "/library" ? "text-[#D9B382]" : "text-zinc-400",
+            pathname === "/" || pathname === "/library"
+              ? "text-[#D9B382]"
+              : "text-zinc-400",
           )}
-          aria-label={pathname === "/library" ? S.canvas : S.library}
+          aria-label={pathname === "/" || pathname === "/library" ? S.canvas : S.library}
         >
           <LayoutGrid className="size-4" />
         </Link>

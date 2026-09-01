@@ -7,10 +7,12 @@ import { TagPicker } from "@/components/tag-picker";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { S } from "@/lib/strings";
+import { downloadAssets } from "@/lib/download-asset";
 import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
 export function BulkBar() {
   const selectedIds = useCanvas((s) => s.selectedIds);
+  const assets = useCanvas((s) => s.assets);
   const assetTags = useCanvas((s) => s.assetTags);
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
@@ -75,6 +77,19 @@ export function BulkBar() {
           />
         </PopoverContent>
       </Popover>
+      <Button
+        size="xs"
+        variant="ghost"
+        onClick={() => {
+          const picked = assets.filter((a) => selectedIds.includes(a.id));
+          void downloadAssets(picked).then((ok) => {
+            if (ok === 0) toast.error(S.downloadFailed);
+            else toast.success(S.downloaded(ok));
+          });
+        }}
+      >
+        {S.download}
+      </Button>
       <Button size="xs" variant="destructive" onClick={() => void deleteSelection()}>
         {S.bulkDelete}
       </Button>
