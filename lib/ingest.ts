@@ -96,9 +96,10 @@ async function prepareFile(file: File): Promise<Omit<NewAssetInput, "x" | "y" | 
 export async function ingestFiles(
   files: File[],
   dropAt: { clientX: number; clientY: number } | "center",
-): Promise<void> {
+): Promise<Asset[]> {
   const boardId = useCanvas.getState().boardId;
-  if (!boardId || files.length === 0) return;
+  if (!boardId || files.length === 0) return [];
+  const created: Asset[] = [];
   const origin =
     dropAt === "center" ? viewportCenterWorld() : worldOriginFromDrop(dropAt.clientX, dropAt.clientY);
 
@@ -107,7 +108,7 @@ export async function ingestFiles(
     const item = await prepareFile(file);
     if (item) prepared.push(item);
   }
-  if (prepared.length === 0) return;
+  if (prepared.length === 0) return [];
 
   const existingRects = useCanvas.getState().assets.map(assetRect);
   const sizes = prepared.map((p) => ({
@@ -147,6 +148,7 @@ export async function ingestFiles(
           ),
         );
         const asset: Asset = await getRepo().insertAsset(item, boardId);
+        created.push(asset);
         useCanvas.getState().addAssets([
           {
             ...asset,
@@ -201,6 +203,7 @@ export async function ingestFiles(
       useCanvas.getState().uploads.filter((u) => u.progress < 100 && !u.error),
     );
   }, 900);
+  return created;
 }
 
 export async function ingestUrl(url: string, dropAt: { clientX: number; clientY: number } | "center") {

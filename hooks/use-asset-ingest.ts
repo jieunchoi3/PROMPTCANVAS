@@ -28,6 +28,7 @@ export function useAssetIngest(containerSource?: ContainerSource) {
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
       if (isTypingTarget(e.target)) return;
+      if (useCanvas.getState().termDialogOpen) return;
       const items = e.clipboardData;
       if (!items) return;
 

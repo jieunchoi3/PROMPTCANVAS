@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PromptsBoard } from "./prompts-board";
 import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
@@ -11,6 +11,7 @@ import { BulkAttrPanel } from "@/components/bulk-attr-panel";
 import { useLibraryGridZoom, GRID_CELL_DEFAULT } from "@/hooks/use-library-grid-zoom";
 import { useAssetIngest } from "@/hooks/use-asset-ingest";
 import { AssetLightbox } from "@/components/asset-lightbox";
+import type { Asset } from "@/lib/types";
 import {
   filteredAssets,
   isPeopleBoard,
@@ -31,6 +32,42 @@ function formatClipDuration(ms: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+const GRID_GAP = 8;
+const GRID_PADDING = 12;
+
+function useElementWidth(el: HTMLElement | null): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return width;
+}
+
+/** Places items left-to-right into the currently shortest column so reading order stays row-like. */
+function masonryColumns<T>(
+  items: T[],
+  columnCount: number,
+  ratioOf: (item: T) => number,
+  extra: number,
+): T[][] {
+  const columns: T[][] = Array.from({ length: columnCount }, () => []);
+  const heights = new Array<number>(columnCount).fill(0);
+  for (const item of items) {
+    let target = 0;
+    for (let i = 1; i < columnCount; i += 1) {
+      if (heights[i] < heights[target]) target = i;
+    }
+    columns[target].push(item);
+    heights[target] += ratioOf(item) + extra;
+  }
+  return columns;
+}
+
 export function LibraryBoard() {
   const assets = useCanvas((s) => s.assets);
   const tags = useCanvas((s) => s.tags);
@@ -47,6 +84,7 @@ export function LibraryBoard() {
   const attrFilters = useCanvas((s) => s.attrFilters);
   const currentBoard = boards.find((b) => b.id === boardId);
   const { cellSize, containerRef, containerEl, setCellSize } = useLibraryGridZoom();
+  const containerWidth = useElementWidth(containerEl);
   const selectionAnchorId = useRef<string | null>(null);
   const { dragging, onDragOver, onDragLeave, onDrop } = useAssetIngest(containerEl);
 
@@ -104,6 +142,14 @@ export function LibraryBoard() {
     .join(" · ");
 
   const compact = cellSize < 120;
+  const innerWidth = Math.max(0, containerWidth - GRID_PADDING * 2);
+  const columnCount = Math.max(1, Math.floor((innerWidth + GRID_GAP) / (cellSize + GRID_GAP)));
+  const columns = masonryColumns(
+    visible,
+    columnCount,
+    (asset) => (asset.width > 0 && asset.height > 0 ? asset.height / asset.width : 1),
+    compact ? 0 : 0.45,
+  );
 
   function onAssetClick(assetId: string, e: React.MouseEvent) {
     const index = visible.findIndex((asset) => asset.id === assetId);
@@ -128,6 +174,85 @@ export function LibraryBoard() {
     select([assetId], false);
     selectionAnchorId.current = assetId;
     setLightboxId(assetId);
+  }
+
+  function renderCard(asset: Asset) {
+    const on = selectedIds.includes(asset.id);
+    const matchedKeywords = hasAttrFilters(attrFilters)
+      ? Object.entries(attrFilters).flatMap(([key, values]) =>
+          values
+            .filter((value) => attrValues(asset.attributes, key).includes(value))
+            .map((value) => optionLabel(key, value)),
+        )
+      : assetTags
+          .filter((link) => link.asset_id === asset.id)
+          .flatMap((link) => {
+            const tag = tagById.get(link.tag_id);
+            const activeTabs = [...filterKinds, ...filterCustomTabs];
+            return tag &&
+              (activeTabs.length === 0 ||
+                activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)))
+              ? [tag]
+              : [];
+          })
+          .map((tag) => tag.name);
+    return (
+      <button
+        key={asset.id}
+        type="button"
+        onClick={(e) => onAssetClick(asset.id, e)}
+        className="group overflow-hidden bg-zinc-900 text-left"
+        style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
+      >
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={asset.thumbUrl || asset.url}
+            alt={asset.title ?? ""}
+            loading="lazy"
+            className="block h-auto w-full"
+            style={
+              asset.width > 0 && asset.height > 0
+                ? { aspectRatio: `${asset.width} / ${asset.height}` }
+                : undefined
+            }
+          />
+          {asset.kind === "video" && asset.duration_ms ? (
+            <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-zinc-200">
+              {formatClipDuration(asset.duration_ms)}
+            </span>
+          ) : null}
+        </div>
+        {!compact ? (
+          <div className="space-y-0.5 px-2 py-1.5">
+            <div className="truncate text-[11px] text-zinc-400">
+              {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
+            </div>
+            {Object.keys(asset.attributes).length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(asset.attributes)
+                  .flatMap(([key, raw]) =>
+                    (Array.isArray(raw) ? raw : [raw]).map((value) => (
+                      <span
+                        key={`${asset.id}-${key}-${value}`}
+                        className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                      >
+                        {optionLabel(key, value)}
+                      </span>
+                    )),
+                  )
+                  .slice(0, 3)}
+              </div>
+            ) : null}
+            {asset.prompt ? (
+              <div className="line-clamp-3 text-[11px] leading-snug text-zinc-300">
+                {asset.prompt}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </button>
+    );
   }
 
   const lightbox = assets.find((a) => a.id === lightboxId);
@@ -165,82 +290,16 @@ export function LibraryBoard() {
                     : S.emptyLibrary}
           </div>
         ) : (
-          <div
-            className="grid gap-2"
-            style={{
-              gridTemplateColumns: `repeat(auto-fill, minmax(${cellSize}px, 1fr))`,
-            }}
-          >
-            {visible.map((asset) => {
-              const on = selectedIds.includes(asset.id);
-              const matchedKeywords = hasAttrFilters(attrFilters)
-                ? Object.entries(attrFilters).flatMap(([key, values]) =>
-                    values
-                      .filter((value) => attrValues(asset.attributes, key).includes(value))
-                      .map((value) => optionLabel(key, value)),
-                  )
-                : assetTags
-                    .filter((link) => link.asset_id === asset.id)
-                    .flatMap((link) => {
-                      const tag = tagById.get(link.tag_id);
-                      const activeTabs = [...filterKinds, ...filterCustomTabs];
-                      return tag &&
-                        (activeTabs.length === 0 ||
-                          activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)))
-                        ? [tag]
-                        : [];
-                    })
-                    .map((tag) => tag.name);
-              return (
-                <button
-                  key={asset.id}
-                  type="button"
-                  onClick={(e) => onAssetClick(asset.id, e)}
-                  className="group overflow-hidden bg-zinc-900 text-left"
-                  style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
-                >
-                  <div className="relative aspect-square">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={asset.thumbUrl || asset.url}
-                      alt={asset.title ?? ""}
-                      className="h-full w-full object-cover"
-                    />
-                    {asset.kind === "video" && asset.duration_ms ? (
-                      <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-zinc-200">
-                        {formatClipDuration(asset.duration_ms)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {!compact ? (
-                    <div className="space-y-0.5 px-2 py-1.5">
-                      <div className="truncate text-[11px] text-zinc-400">
-                        {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
-                      </div>
-                      {Object.keys(asset.attributes).length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(asset.attributes)
-                            .flatMap(([key, raw]) =>
-                              (Array.isArray(raw) ? raw : [raw]).map((value) => (
-                                <span
-                                  key={`${asset.id}-${key}-${value}`}
-                                  className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400"
-                                >
-                                  {optionLabel(key, value)}
-                                </span>
-                              )),
-                            )
-                            .slice(0, 3)}
-                        </div>
-                      ) : null}
-                      <div className="line-clamp-3 text-[11px] leading-snug text-zinc-300">
-                        {asset.prompt || " "}
-                      </div>
-                    </div>
-                  ) : null}
-                </button>
-              );
-            })}
+          <div className="flex items-start" style={{ gap: GRID_GAP }}>
+            {columns.map((column, columnIndex) => (
+              <div
+                key={columnIndex}
+                className="flex min-w-0 flex-1 flex-col"
+                style={{ gap: GRID_GAP }}
+              >
+                {column.map(renderCard)}
+              </div>
+            ))}
           </div>
         )}
         <BulkBar />

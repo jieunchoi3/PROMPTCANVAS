@@ -178,4 +178,21 @@ export const S = {
   close: "닫기",
 
   phase2: "2단계 기능이에요.",
+
+  termAdd: "용어 등록",
+  termAddHint: "이미지를 올리고 카테고리별로 키워드를 붙이세요. 전체 프롬프트는 직접 쓰거나 역분석으로 채울 수 있어요.",
+  termImage: "이미지",
+  termImageDrop: "클릭해서 고르거나 끌어오기 · ⌘V로 붙여넣기",
+  termImageChange: "다른 이미지",
+  termKeywords: "키워드",
+  termKeywordPh: (category: string) => `${category} 키워드 입력 후 Enter`,
+  termPicked: "붙일 키워드",
+  termFullPrompt: "전체 프롬프트 (선택)",
+  termFullPromptPh: "프롬프트 전체를 붙여넣거나 비워두세요",
+  termRunReverse: "저장 후 역분석으로 프롬프트 채우기",
+  termSave: "저장",
+  termSaving: "저장 중…",
+  termSaved: "용어를 저장했어요",
+  termSaveFailed: "저장에 실패했어요",
+  termNeedImage: "이미지를 먼저 올려 주세요",
 } as const;

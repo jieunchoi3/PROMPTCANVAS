@@ -77,6 +77,7 @@ type CanvasState = {
   characterAssets: CharacterAsset[];
   attrFilters: Record<string, string[]>;
   characterDialogOpen: boolean;
+  termDialogOpen: boolean;
   promptSheets: PromptSheet[];
   selectedPromptId: string | null;
   filterSheetTypes: PromptSheetType[];
@@ -134,6 +135,7 @@ type CanvasState = {
   toggleAssetAttr: (assetId: string, key: string, value: string) => void;
   applyAttrToSelection: (key: string, value: string) => void;
   setCharacterDialogOpen: (open: boolean) => void;
+  setTermDialogOpen: (open: boolean) => void;
   saveCharacter: (input: {
     name: string;
     attributes: AttributeMap;
@@ -189,6 +191,26 @@ function readCamera(boardId: string): Camera {
   return { x: 80, y: 80, scale: 1 };
 }
 
+const LAST_BOARD_KEY = "pc.lastBoard";
+
+function initialBoardId(boards: Board[]): string | null {
+  try {
+    const last = localStorage.getItem(LAST_BOARD_KEY);
+    if (last && boards.some((b) => b.id === last)) return last;
+  } catch {
+    /* ignore */
+  }
+  return (boards.find((b) => isPeopleBoard(b)) ?? boards[0])?.id ?? null;
+}
+
+function rememberBoard(boardId: string): void {
+  try {
+    localStorage.setItem(LAST_BOARD_KEY, boardId);
+  } catch {
+    /* ignore */
+  }
+}
+
 export const useCanvas = create<CanvasState>((set, get) => ({
   ready: false,
   loadError: null,
@@ -217,6 +239,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   characterAssets: [],
   attrFilters: {},
   characterDialogOpen: false,
+  termDialogOpen: false,
   promptSheets: [],
   selectedPromptId: null,
   filterSheetTypes: [],
@@ -230,7 +253,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     try {
       const repo = getRepo();
       const boards = await repo.listBoards();
-      const boardId = boards[0]?.id ?? null;
+      const boardId = initialBoardId(boards);
       if (!boardId) {
         set({ ready: true, mode: repo.mode, boards, loadError: null });
         return;
@@ -281,6 +304,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       repo.listPromptSheets(id),
     ]);
     get().persistNow();
+    rememberBoard(id);
     set({
       boardId: id,
       assets,
@@ -670,6 +694,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     }
   },
   setCharacterDialogOpen: (characterDialogOpen) => set({ characterDialogOpen }),
+  setTermDialogOpen: (termDialogOpen) => set({ termDialogOpen }),
   saveCharacter: async (input) => {
     const ids = get().selectedIds;
     if (ids.length === 0 || !input.name.trim()) return;

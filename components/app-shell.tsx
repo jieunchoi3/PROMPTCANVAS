@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { TopBar } from "@/app/(canvas)/_components/top-bar";
 import { CommandPalette } from "@/app/(canvas)/_components/command-palette";
 import { CharacterDialog } from "@/components/character-dialog";
+import { TermDialog } from "@/components/term-dialog";
 import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
 import { useCanvas } from "@/store/canvas-store";
@@ -50,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-0 flex-1">{children}</div>
       <CommandPalette />
       <CharacterDialog />
+      <TermDialog />
     </div>
   );
 }

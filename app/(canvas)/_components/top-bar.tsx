@@ -172,6 +172,17 @@ export function TopBar() {
           </Button>
         ) : (
           <>
+            {!attrCategoryDefs ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 border-[#D9B382]/40 text-[#D9B382] hover:bg-[#D9B382]/10"
+                onClick={() => useCanvas.getState().setTermDialogOpen(true)}
+              >
+                <Plus className="size-3.5" />
+                {S.termAdd}
+              </Button>
+            ) : null}
             <Button
               size="sm"
               className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
