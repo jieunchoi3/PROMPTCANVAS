@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: S.appName,
-  description: S.loginSubtitle,
+  description: "AI image prompt library · AI 이미지 프롬프트 라이브러리",
 };
 
 export default function RootLayout({

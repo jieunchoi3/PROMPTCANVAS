@@ -11,6 +11,7 @@ import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
 import type { CharacterAnalysis } from "@/lib/character-analysis-schema";
 import { matchesAttributes, hasAttrFilters, toggleAttribute, applyAttribute, attrValues } from "@/lib/attributes";
+import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import {
   customCategoryId,
@@ -750,7 +751,7 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
       toBoardId: targetBoardId,
     });
 
-    toast.success(S.movedToBoard(moving.length, targetBoard.name));
+    toast.success(S.movedToBoard(moving.length, boardLabel(targetBoard)));
   },
 
   undo: async () => {

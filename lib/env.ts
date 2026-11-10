@@ -1,3 +1,4 @@
+import { getLocale } from "@/lib/locale";
 import { PROMPT_CANVAS_OWNER_ID } from "@/lib/supabase/config";
 
 export function isCloudEnabled(): boolean {
@@ -54,7 +55,7 @@ export function looksLikeUrl(text: string): boolean {
 
 export function formatDate(iso: string): string {
   try {
-    return new Intl.DateTimeFormat("ko", {
+    return new Intl.DateTimeFormat(getLocale(), {
       year: "numeric",
       month: "short",
       day: "numeric",

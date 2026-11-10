@@ -1,6 +1,7 @@
 "use client";
 
 import { isPromptsBoard } from "@/lib/board-kind";
+import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { useCanvas } from "@/store/canvas-store";
@@ -35,7 +36,7 @@ export function BoardMovePicker({
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-zinc-200 hover:bg-white/10"
         >
           <span>{board.emoji}</span>
-          <span className="truncate">{board.name}</span>
+          <span className="truncate">{boardLabel(board)}</span>
         </button>
       ))}
     </div>

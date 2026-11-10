@@ -1,3 +1,5 @@
+import { t } from "@/lib/locale";
+
 export type VideoAttrOption = {
   value: string;
   label: string;
@@ -13,63 +15,63 @@ export type VideoAttrDef = {
 export const VIDEO_ATTRIBUTES: readonly VideoAttrDef[] = [
   {
     key: "duration_band",
-    label: "길이",
+    label: t("길이", "Length"),
     multi: false,
     options: [
-      { value: "under-15s", label: "15초 이하" },
-      { value: "15-60s", label: "15–60초" },
-      { value: "1-3min", label: "1–3분" },
-      { value: "over-3min", label: "3분+" },
+      { value: "under-15s", label: t("15초 이하", "Under 15s") },
+      { value: "15-60s", label: t("15–60초", "15–60s") },
+      { value: "1-3min", label: t("1–3분", "1–3 min") },
+      { value: "over-3min", label: t("3분+", "3 min+") },
     ],
   },
   {
     key: "aspect",
-    label: "비율",
+    label: t("비율", "Ratio"),
     multi: false,
     options: [
       { value: "9:16", label: "9:16" },
       { value: "16:9", label: "16:9" },
       { value: "1:1", label: "1:1" },
       { value: "4:5", label: "4:5" },
-      { value: "other", label: "기타" },
+      { value: "other", label: t("기타", "Other") },
     ],
   },
   {
     key: "motion",
-    label: "모션",
+    label: t("모션", "Motion"),
     multi: true,
     options: [
-      { value: "static", label: "고정" },
-      { value: "pan", label: "팬" },
-      { value: "zoom", label: "줌" },
-      { value: "handheld", label: "핸드헬드" },
-      { value: "cut", label: "컷편집" },
-      { value: "slow-mo", label: "슬로모" },
+      { value: "static", label: t("고정", "Static") },
+      { value: "pan", label: t("팬", "Pan") },
+      { value: "zoom", label: t("줌", "Zoom") },
+      { value: "handheld", label: t("핸드헬드", "Handheld") },
+      { value: "cut", label: t("컷편집", "Jump cuts") },
+      { value: "slow-mo", label: t("슬로모", "Slow-mo") },
     ],
   },
   {
     key: "vibe",
-    label: "무드",
+    label: t("무드", "Mood"),
     multi: true,
     options: [
-      { value: "cinematic", label: "시네마틱" },
-      { value: "raw", label: "로우" },
-      { value: "dreamy", label: "몽환" },
-      { value: "energetic", label: "에너지" },
-      { value: "calm", label: "잔잔" },
-      { value: "luxury", label: "럭셔리" },
+      { value: "cinematic", label: t("시네마틱", "Cinematic") },
+      { value: "raw", label: t("로우", "Raw") },
+      { value: "dreamy", label: t("몽환", "Dreamy") },
+      { value: "energetic", label: t("에너지", "Energetic") },
+      { value: "calm", label: t("잔잔", "Calm") },
+      { value: "luxury", label: t("럭셔리", "Luxury") },
     ],
   },
   {
     key: "use_case",
-    label: "용도",
+    label: t("용도", "Use"),
     multi: true,
     options: [
-      { value: "reels", label: "릴스/숏폼" },
-      { value: "ad", label: "광고" },
-      { value: "reference", label: "레퍼런스" },
-      { value: "mood", label: "무드보드" },
-      { value: "tutorial", label: "튜토리얼" },
+      { value: "reels", label: t("릴스/숏폼", "Reels/short-form") },
+      { value: "ad", label: t("광고", "Ad") },
+      { value: "reference", label: t("레퍼런스", "Reference") },
+      { value: "mood", label: t("무드보드", "Moodboard") },
+      { value: "tutorial", label: t("튜토리얼", "Tutorial") },
     ],
   },
 ];

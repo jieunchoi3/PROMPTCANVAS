@@ -1,14 +1,15 @@
 import type { Tag, TagKind } from "@/lib/types";
+import { t } from "@/lib/locale";
 
 export const TAG_KINDS: { key: TagKind; label: string }[] = [
-  { key: "lighting", label: "조명" },
-  { key: "colour", label: "색감" },
-  { key: "camera", label: "카메라 앵글/구도" },
-  { key: "pose", label: "포즈" },
-  { key: "style", label: "무드" },
-  { key: "subject", label: "피사체" },
-  { key: "effect", label: "효과" },
-  { key: "free", label: "기타" },
+  { key: "lighting", label: t("조명", "Lighting") },
+  { key: "colour", label: t("색감", "Colour") },
+  { key: "camera", label: t("카메라 앵글/구도", "Camera angle/composition") },
+  { key: "pose", label: t("포즈", "Pose") },
+  { key: "style", label: t("무드", "Mood") },
+  { key: "subject", label: t("피사체", "Subject") },
+  { key: "effect", label: t("효과", "Effects") },
+  { key: "free", label: t("기타", "Other") },
 ];
 
 export const TOP_CATEGORY_KINDS: TagKind[] = [

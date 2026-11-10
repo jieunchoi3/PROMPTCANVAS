@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, ImagePlus, Loader2, X } from "lucide-react";
+import { Check, Copy, ImagePlus, Loader2, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,11 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const [sheetType, setSheetType] = useState<PromptSheet["sheet_type"]>("other");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  const currentId = prompt?.id ?? null;
+
+  // Only reload the fields when switching prompts; a save landing mid-typing must not clobber the draft.
   useEffect(() => {
     if (!prompt) return;
     setTitle(prompt.title);
@@ -36,9 +40,41 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
     setModel(prompt.model);
     setNotes(prompt.notes);
     setSheetType(prompt.sheet_type);
-  }, [prompt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId]);
 
-  const currentId = prompt?.id ?? null;
+  const draft = {
+    title,
+    body,
+    negative_prompt: negative,
+    model,
+    notes,
+    sheet_type: sheetType,
+  };
+  const differs = (fields: typeof draft) =>
+    !!prompt &&
+    (Object.keys(fields) as (keyof typeof draft)[]).some((k) => fields[k] !== prompt[k]);
+  const dirty = differs(draft);
+
+  async function save(overrides: Partial<typeof draft> = {}) {
+    const fields = { ...draft, ...overrides };
+    if (!currentId || !canEdit || !differs(fields)) return;
+    setSaving(true);
+    try {
+      await updatePromptSheet(currentId, fields);
+    } catch {
+      toast.error(S.promptSaveFailed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!dirty || saving) return;
+    const timer = setTimeout(() => void save(), 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, body, negative, model, notes, sheetType, dirty, saving]);
 
   async function setPreview(id: string, file: File | null) {
     setUploading(true);
@@ -80,10 +116,6 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
 
   const promptId = prompt.id;
 
-  function persist(fields: Parameters<typeof updatePromptSheet>[1]) {
-    void updatePromptSheet(promptId, fields);
-  }
-
   async function copyAll() {
     const parts = [body.trim(), negative.trim()].filter(Boolean);
     if (parts.length === 0) return;
@@ -110,7 +142,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
               type="button"
               onClick={() => {
                 setSheetType(type.value);
-                persist({ sheet_type: type.value });
+                void save({ sheet_type: type.value });
               }}
               className={cn(
                 "h-6 rounded-full px-2 text-[11px]",
@@ -130,7 +162,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => persist({ title })}
+          onBlur={() => void save()}
           placeholder={S.promptTitlePh}
           className="mb-3 h-8 border-white/10 bg-black/20"
         />
@@ -229,7 +261,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          onBlur={() => persist({ body })}
+          onBlur={() => void save()}
           placeholder={S.promptBodyPh}
           className="mb-3 min-h-40 border-white/10 bg-black/20 text-[13px] leading-relaxed"
         />
@@ -240,7 +272,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <Textarea
           value={negative}
           onChange={(e) => setNegative(e.target.value)}
-          onBlur={() => persist({ negative_prompt: negative })}
+          onBlur={() => void save()}
           placeholder="negative prompt"
           className="mb-3 min-h-20 border-white/10 bg-black/20 text-[13px]"
         />
@@ -251,7 +283,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <Input
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          onBlur={() => persist({ model })}
+          onBlur={() => void save()}
           placeholder={S.modelPlaceholder}
           className="mb-2 h-8 border-white/10 bg-black/20"
         />
@@ -263,7 +295,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
                 type="button"
                 onClick={() => {
                   setModel(m);
-                  persist({ model: m });
+                  void save({ model: m });
                 }}
                 className="h-5 rounded-full bg-white/5 px-2 text-[11px] text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
               >
@@ -279,13 +311,46 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => persist({ notes })}
+          onBlur={() => void save()}
           placeholder={S.promptNotesPh}
           className="min-h-16 border-white/10 bg-black/20 text-[13px]"
         />
       </fieldset>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="space-y-2 border-t border-white/10 p-3">
+        {canEdit ? (
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "flex flex-1 items-center gap-1 text-[11px]",
+                saving ? "text-zinc-400" : dirty ? "text-amber-300/80" : "text-zinc-500",
+              )}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  {S.promptSaving}
+                </>
+              ) : dirty ? (
+                S.promptUnsaved
+              ) : (
+                <>
+                  <Check className="size-3" />
+                  {S.promptSavedStatus}
+                </>
+              )}
+            </span>
+            <Button
+              size="sm"
+              className="h-7 bg-[#D9B382] px-4 text-[#0B0B0D] hover:bg-[#e5c497]"
+              disabled={!dirty || saving}
+              onClick={() => void save()}
+            >
+              <Save className="size-3.5" />
+              {S.promptSave}
+            </Button>
+          </div>
+        ) : null}
         <Button
           size="sm"
           variant="outline"

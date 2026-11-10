@@ -18,9 +18,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ACCEPT_ATTR } from "@/lib/constants";
 import { ingestFiles } from "@/lib/ingest";
+import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { AccountButton } from "@/components/account-button";
+import { LanguageSwitch } from "@/components/language-switch";
 import { AttrTopFilters, TagTopFilters } from "@/components/top-hierarchical-filters";
 import { hasAttrFilters } from "@/lib/attributes";
 import {
@@ -105,7 +107,7 @@ export function TopBar() {
       <div className="flex min-h-7 items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-zinc-200 hover:bg-white/5">
-            <span>{current ? `${current.emoji} ${current.name}` : S.defaultBoard}</span>
+            <span>{current ? `${current.emoji} ${boardLabel(current)}` : S.defaultBoard}</span>
             <ChevronDown className="size-3.5 opacity-50" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -116,7 +118,7 @@ export function TopBar() {
                 onClick={() => void useCanvas.getState().setBoard(b.id)}
               >
                 <span className="min-w-0 flex-1 truncate">
-                  {b.emoji} {b.name}
+                  {b.emoji} {boardLabel(b)}
                 </span>
                 {canEdit ? (
                 <span className="ml-3 flex shrink-0 items-center gap-0.5 opacity-0 group-hover/board:opacity-100 group-focus/board:opacity-100">
@@ -202,6 +204,7 @@ export function TopBar() {
           </button>
         ) : null}
 
+        <LanguageSwitch />
         <AccountButton />
 
         <Link

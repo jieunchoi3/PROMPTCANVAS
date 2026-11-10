@@ -1,13 +1,13 @@
-import { S } from "@/lib/strings";
+import { BUILTIN_BOARD_NAMES } from "@/lib/builtin-boards";
 import type { Board, BoardKind } from "@/lib/types";
 
 export function resolveBoardKind(board: Board | undefined): BoardKind {
   if (!board) return "canvas";
-  if (board.name === S.peopleBoard) return "characters";
-  if (board.name === S.wardrobeBoard) return "wardrobe";
-  if (board.name === S.promptsBoard) return "prompts";
-  if (board.name === S.videoBoard) return "video";
-  if (board.name === S.defaultBoard) return "canvas";
+  if (board.name === BUILTIN_BOARD_NAMES.characters) return "characters";
+  if (board.name === BUILTIN_BOARD_NAMES.wardrobe) return "wardrobe";
+  if (board.name === BUILTIN_BOARD_NAMES.prompts) return "prompts";
+  if (board.name === BUILTIN_BOARD_NAMES.video) return "video";
+  if (board.name === BUILTIN_BOARD_NAMES.canvas) return "canvas";
   if (
     board.kind === "characters" ||
     board.kind === "wardrobe" ||

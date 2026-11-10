@@ -125,7 +125,7 @@ export async function callGeminiJson(prompt: string, image?: { mimeType: string;
 
     const totalTimer = setTimeout(() => {
       finish(() =>
-        reject(new Error("Gemini 응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.")),
+        reject(new Error("Gemini is taking too long to respond. Please try again shortly.")),
       );
     }, TOTAL_TIMEOUT_MS);
 

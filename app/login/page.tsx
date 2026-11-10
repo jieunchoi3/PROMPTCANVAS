@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LanguageSwitch } from "@/components/language-switch";
 import { Button } from "@/components/ui/button";
+import { useMounted } from "@/hooks/use-mounted";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isCloudEnabled } from "@/lib/env";
@@ -16,12 +18,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const mounted = useMounted();
 
   useEffect(() => {
     if (!isCloudEnabled()) router.replace("/");
   }, [router]);
 
-  if (!isCloudEnabled()) return null;
+  if (!isCloudEnabled() || !mounted) {
+    return <div className="min-h-screen bg-[#0B0B0D]" />;
+  }
 
   async function submit() {
     setBusy(true);
@@ -83,6 +88,9 @@ export default function LoginPage() {
         <Link href="/" className="block text-center text-xs text-zinc-500 hover:text-zinc-300">
           {S.backToLibrary}
         </Link>
+        <div className="flex justify-center">
+          <LanguageSwitch />
+        </div>
       </form>
     </div>
   );

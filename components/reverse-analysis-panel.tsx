@@ -5,16 +5,17 @@ import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
 import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import { useCanvas } from "@/store/canvas-store";
+import { t } from "@/lib/locale";
 
 const SECTION_LABELS: Record<keyof ReverseAnalysis["sections"], string> = {
-  subject: "피사체",
-  pose_composition: "인물 포즈",
-  camera_lens: "카메라 앵글/구도·렌즈",
-  lighting: "조명",
-  colour: "색감",
-  style_texture: "스타일·질감",
-  background: "배경",
-  mood: "무드",
+  subject: t("피사체", "Subject"),
+  pose_composition: t("인물 포즈", "Pose"),
+  camera_lens: t("카메라 앵글/구도·렌즈", "Camera angle/composition · lens"),
+  lighting: t("조명", "Lighting"),
+  colour: t("색감", "Colour"),
+  style_texture: t("스타일·질감", "Style · texture"),
+  background: t("배경", "Background"),
+  mood: t("무드", "Mood"),
 };
 
 export function ReverseAnalysisPanel({

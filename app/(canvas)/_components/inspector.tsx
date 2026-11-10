@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { optionLabel } from "@/lib/attributes";
 import { formatDate } from "@/lib/env";
 import { downloadAsset } from "@/lib/download-asset";
+import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
 
@@ -288,7 +289,7 @@ export function Inspector() {
           {S.added}: {formatDate(asset.created_at)}
         </div>
         <div>
-          {S.board}: {board ? `${board.emoji} ${board.name}` : S.none}
+          {S.board}: {board ? `${board.emoji} ${boardLabel(board)}` : S.none}
         </div>
         <div>
           {S.group}: {S.none}

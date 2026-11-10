@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { PROMPT_CANVAS_MEDIA_BUCKET } from "@/lib/supabase/config";
 import { resolveBoardKind, sortBoards } from "@/lib/board-kind";
+import { BUILTIN_BOARD_NAMES } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import type {
   Asset,
@@ -125,7 +126,7 @@ export function createSupabaseRepo(): LibraryRepo {
             .from("boards")
             .insert({
               user_id,
-              name: S.peopleBoard,
+              name: BUILTIN_BOARD_NAMES.characters,
               emoji: S.peopleBoardEmoji,
               kind: "characters",
             })
@@ -139,7 +140,7 @@ export function createSupabaseRepo(): LibraryRepo {
             .from("boards")
             .insert({
               user_id,
-              name: S.wardrobeBoard,
+              name: BUILTIN_BOARD_NAMES.wardrobe,
               emoji: S.wardrobeBoardEmoji,
               kind: "wardrobe",
             })
@@ -153,7 +154,7 @@ export function createSupabaseRepo(): LibraryRepo {
             .from("boards")
             .insert({
               user_id,
-              name: S.promptsBoard,
+              name: BUILTIN_BOARD_NAMES.prompts,
               emoji: S.promptsBoardEmoji,
               kind: "prompts",
             })
@@ -167,7 +168,7 @@ export function createSupabaseRepo(): LibraryRepo {
             .from("boards")
             .insert({
               user_id,
-              name: S.videoBoard,
+              name: BUILTIN_BOARD_NAMES.video,
               emoji: S.videoBoardEmoji,
               kind: "video",
             })
@@ -182,7 +183,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .from("boards")
         .insert({
           user_id,
-          name: S.defaultBoard,
+          name: BUILTIN_BOARD_NAMES.canvas,
           emoji: S.defaultBoardEmoji,
           kind: "canvas",
         })
@@ -193,7 +194,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .from("boards")
         .insert({
           user_id,
-          name: S.peopleBoard,
+          name: BUILTIN_BOARD_NAMES.characters,
           emoji: S.peopleBoardEmoji,
           kind: "characters",
         })
@@ -204,7 +205,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .from("boards")
         .insert({
           user_id,
-          name: S.wardrobeBoard,
+          name: BUILTIN_BOARD_NAMES.wardrobe,
           emoji: S.wardrobeBoardEmoji,
           kind: "wardrobe",
         })
@@ -215,7 +216,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .from("boards")
         .insert({
           user_id,
-          name: S.promptsBoard,
+          name: BUILTIN_BOARD_NAMES.prompts,
           emoji: S.promptsBoardEmoji,
           kind: "prompts",
         })
@@ -226,7 +227,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .from("boards")
         .insert({
           user_id,
-          name: S.videoBoard,
+          name: BUILTIN_BOARD_NAMES.video,
           emoji: S.videoBoardEmoji,
           kind: "video",
         })

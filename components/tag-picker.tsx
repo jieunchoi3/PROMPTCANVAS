@@ -96,7 +96,7 @@ export function TagPicker({
                   // Korean IME swallows the Enter keydown that commits composition; keyup still fires once.
                   if (e.key === "Enter") void addDraft(tab.id, kind, categoryKey);
                 }}
-                placeholder={`${tab.label} 키워드`}
+                placeholder={S.tagKeywordPh(tab.label)}
                 className="h-7 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[12px] outline-none focus:border-[#D9B382]/60"
               />
               <Button

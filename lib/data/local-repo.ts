@@ -4,6 +4,7 @@ import {
   type CustomTopCategory,
 } from "@/lib/top-categories";
 import { inferBoardKindPatch, resolveBoardKind, sortBoards } from "@/lib/board-kind";
+import { BUILTIN_BOARD_NAMES } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { makeImageThumb } from "@/lib/thumbnail";
 import type {
@@ -223,7 +224,7 @@ export function createLocalRepo(): LibraryRepo {
         const board: Board = {
           id: uuid(),
           user_id,
-          name: S.defaultBoard,
+          name: BUILTIN_BOARD_NAMES.canvas,
           emoji: S.defaultBoardEmoji,
           kind: "canvas",
           created_at: nowIso(),
@@ -238,7 +239,7 @@ export function createLocalRepo(): LibraryRepo {
         const people: Board = {
           id: uuid(),
           user_id,
-          name: S.peopleBoard,
+          name: BUILTIN_BOARD_NAMES.characters,
           emoji: S.peopleBoardEmoji,
           kind: "characters",
           created_at: nowIso(),
@@ -253,7 +254,7 @@ export function createLocalRepo(): LibraryRepo {
         const wardrobe: Board = {
           id: uuid(),
           user_id,
-          name: S.wardrobeBoard,
+          name: BUILTIN_BOARD_NAMES.wardrobe,
           emoji: S.wardrobeBoardEmoji,
           kind: "wardrobe",
           created_at: nowIso(),
@@ -268,7 +269,7 @@ export function createLocalRepo(): LibraryRepo {
         const prompts: Board = {
           id: uuid(),
           user_id,
-          name: S.promptsBoard,
+          name: BUILTIN_BOARD_NAMES.prompts,
           emoji: S.promptsBoardEmoji,
           kind: "prompts",
           created_at: nowIso(),
@@ -283,7 +284,7 @@ export function createLocalRepo(): LibraryRepo {
         const video: Board = {
           id: uuid(),
           user_id,
-          name: S.videoBoard,
+          name: BUILTIN_BOARD_NAMES.video,
           emoji: S.videoBoardEmoji,
           kind: "video",
           created_at: nowIso(),

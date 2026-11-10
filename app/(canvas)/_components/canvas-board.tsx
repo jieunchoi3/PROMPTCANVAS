@@ -11,6 +11,7 @@ import {
   selectionBounds,
 } from "@/lib/canvas-geometry";
 import { isMod, isTypingTarget } from "@/lib/env";
+import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { useAssetIngest } from "@/hooks/use-asset-ingest";
 import { filteredAssets, isPeopleBoard, isPromptsBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
@@ -142,11 +143,11 @@ export function CanvasBoard() {
           toast(S.moveBoardEmpty);
           return;
         }
-        const labels = destinations.map((b, i) => `${i + 1}. ${b.emoji} ${b.name}`).join("\n");
+        const labels = destinations.map((b, i) => `${i + 1}. ${b.emoji} ${boardLabel(b)}`).join("\n");
         const answer = window.prompt(`${S.moveToBoard}\n${labels}`, "1");
         if (!answer) return;
         const index = Number.parseInt(answer, 10) - 1;
-        const target = destinations[index] ?? destinations.find((b) => b.name === answer.trim());
+        const target = destinations[index] ?? destinations.find((b) => b.name === answer.trim() || boardLabel(b) === answer.trim());
         if (!target) {
           toast.error(S.moveBoardMissing);
           return;

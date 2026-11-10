@@ -6,6 +6,7 @@ import { CommandPalette } from "@/app/(canvas)/_components/command-palette";
 import { CharacterDialog } from "@/components/character-dialog";
 import { TermDialog } from "@/components/term-dialog";
 import { Button } from "@/components/ui/button";
+import { useMounted } from "@/hooks/use-mounted";
 import { S } from "@/lib/strings";
 import { useCanvas } from "@/store/canvas-store";
 
@@ -13,6 +14,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const load = useCanvas((s) => s.load);
   const ready = useCanvas((s) => s.ready);
   const loadError = useCanvas((s) => s.loadError);
+  const mounted = useMounted();
 
   useEffect(() => {
     void load();
@@ -24,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="space-y-3">
           <p className="text-sm text-zinc-500">{S.appName}</p>
           {!loadError ? (
-            <p className="text-xs text-zinc-600">{S.loading}</p>
+            <p className="text-xs text-zinc-600">{mounted ? S.loading : "\u00a0"}</p>
           ) : null}
           {loadError ? (
             <>
