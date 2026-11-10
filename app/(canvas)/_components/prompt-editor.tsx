@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, ImagePlus, X } from "lucide-react";
+import { Copy, ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { isTypingTarget } from "@/lib/env";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import type { PromptSheet } from "@/lib/types";
@@ -24,6 +25,8 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const [model, setModel] = useState("");
   const [notes, setNotes] = useState("");
   const [sheetType, setSheetType] = useState<PromptSheet["sheet_type"]>("other");
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     if (!prompt) return;
@@ -34,6 +37,38 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
     setNotes(prompt.notes);
     setSheetType(prompt.sheet_type);
   }, [prompt]);
+
+  const currentId = prompt?.id ?? null;
+
+  async function setPreview(id: string, file: File | null) {
+    setUploading(true);
+    try {
+      await uploadPromptPreview(id, file);
+    } catch {
+      toast.error(S.promptPreviewFailed);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!currentId || !canEdit) return;
+    const id = currentId;
+    function onPaste(e: ClipboardEvent) {
+      const data = e.clipboardData;
+      if (!data) return;
+      if (isTypingTarget(e.target) && data.getData("text/plain").trim()) return;
+      const file = [...data.items]
+        .find((item) => item.type.startsWith("image/"))
+        ?.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      void setPreview(id, file);
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, canEdit]);
 
   if (!prompt) {
     return (
@@ -103,7 +138,22 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
           {S.promptPreview}
         </div>
-        <div className="mb-3">
+        <div
+          className="mb-3"
+          onDragOver={(e) => {
+            if (!canEdit || !e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            if (!canEdit) return;
+            e.preventDefault();
+            setDragOver(false);
+            const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
+            if (file) void setPreview(promptId, file);
+          }}
+        >
           <input
             ref={fileRef}
             type="file"
@@ -111,39 +161,64 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void uploadPromptPreview(promptId, file);
+              if (file) void setPreview(promptId, file);
               e.target.value = "";
             }}
           />
           {prompt.previewUrl ? (
-            <div className="relative overflow-hidden rounded-md border border-white/10 bg-black/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={prompt.previewUrl}
-                alt=""
-                className="block h-auto w-full"
-              />
+            <>
+              <div
+                className={cn(
+                  "relative overflow-hidden rounded-md border bg-black/30",
+                  dragOver ? "border-[#D9B382]" : "border-white/10",
+                )}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={prompt.previewUrl}
+                  alt=""
+                  className={cn("block h-auto w-full", uploading && "opacity-40")}
+                />
+                {uploading ? (
+                  <div className="absolute inset-0 grid place-items-center">
+                    <Loader2 className="size-5 animate-spin text-zinc-300" />
+                  </div>
+                ) : null}
+                {canEdit && !uploading ? (
+                  <button
+                    type="button"
+                    className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-white"
+                    aria-label={S.promptPreviewRemove}
+                    onClick={() => void setPreview(promptId, null)}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
               {canEdit ? (
-                <button
-                  type="button"
-                  className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-white"
-                  aria-label={S.promptPreviewRemove}
-                  onClick={() => void uploadPromptPreview(promptId, null)}
-                >
-                  <X className="size-3.5" />
-                </button>
+                <p className="mt-1 text-[10px] text-zinc-600">{S.promptPreviewReplaceHint}</p>
               ) : null}
-            </div>
+            </>
           ) : !canEdit ? (
             <p className="text-[12px] text-zinc-600">—</p>
           ) : (
             <button
               type="button"
+              disabled={uploading}
               onClick={() => fileRef.current?.click()}
-              className="flex w-full flex-col items-center gap-1 rounded-md border border-dashed border-white/15 bg-black/20 px-3 py-5 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+              className={cn(
+                "flex w-full flex-col items-center gap-1 rounded-md border border-dashed bg-black/20 px-3 py-5 text-zinc-500 hover:border-white/25 hover:text-zinc-300",
+                dragOver ? "border-[#D9B382] text-zinc-300" : "border-white/15",
+              )}
             >
-              <ImagePlus className="size-5" />
-              <span className="text-[11px]">{S.promptPreviewHint}</span>
+              {uploading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <ImagePlus className="size-5" />
+              )}
+              <span className="text-[11px]">
+                {uploading ? S.promptPreviewUploading : S.promptPreviewHint}
+              </span>
             </button>
           )}
         </div>
