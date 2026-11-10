@@ -180,32 +180,28 @@ export function LibraryBoard() {
 
   function renderCard(asset: Asset) {
     const on = selectedIds.includes(asset.id);
-    const matchedKeywords = hasAttrFilters(attrFilters)
+    const attrKeywords = hasAttrFilters(attrFilters)
       ? Object.entries(attrFilters).flatMap(([key, values]) =>
           values
             .filter((value) => attrValues(asset.attributes, key).includes(value))
             .map((value) => optionLabel(key, value)),
         )
-      : assetTags
-          .filter((link) => link.asset_id === asset.id)
-          .flatMap((link) => {
-            const tag = tagById.get(link.tag_id);
-            const activeTabs = [...filterKinds, ...filterCustomTabs];
-            return tag &&
-              (activeTabs.length === 0 ||
-                activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)))
-              ? [tag]
-              : [];
-          })
-          .map((tag) => tr(tag.name));
-    const categoryKeywords = expandedTopTabId
-      ? assetTags
-          .filter((link) => link.asset_id === asset.id)
-          .flatMap((link) => {
-            const tag = tagById.get(link.tag_id);
-            return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tr(tag.name)] : [];
-          })
-      : null;
+      : [];
+    const ownTags = assetTags
+      .filter((link) => link.asset_id === asset.id)
+      .flatMap((link) => {
+        const tag = tagById.get(link.tag_id);
+        return tag ? [tag] : [];
+      });
+    const activeTabs = expandedTopTabId
+      ? [expandedTopTabId]
+      : [...filterKinds, ...filterCustomTabs];
+    const inActiveTab = ownTags.filter((tag) =>
+      activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)),
+    );
+    const titleKeywords = (inActiveTab.length > 0 ? inActiveTab : ownTags).map((tag) =>
+      tr(tag.name),
+    );
     return (
       <button
         key={asset.id}
@@ -214,14 +210,14 @@ export function LibraryBoard() {
         className="group overflow-hidden bg-zinc-900 text-left"
         style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
       >
-        {categoryKeywords ? (
+        {titleKeywords.length > 0 ? (
           <div
             className={cn(
-              "px-2 py-1.5 text-[12px] leading-snug",
-              categoryKeywords.length > 0 ? "text-zinc-100" : "text-zinc-600",
+              "px-2 py-1.5 leading-snug text-zinc-100",
+              compact ? "truncate text-[10px]" : "line-clamp-2 text-[12px]",
             )}
           >
-            {categoryKeywords.length > 0 ? categoryKeywords.join(" · ") : "—"}
+            {titleKeywords.join(" · ")}
           </div>
         ) : null}
         <div className="relative">
@@ -244,14 +240,14 @@ export function LibraryBoard() {
           ) : null}
         </div>
         {!compact &&
-        !categoryKeywords &&
-        (matchedKeywords.length > 0 ||
+        !expandedTopTabId &&
+        (attrKeywords.length > 0 ||
           Object.keys(asset.attributes).length > 0 ||
           asset.prompt) ? (
           <div className="space-y-0.5 px-2 py-1.5">
-            {matchedKeywords.length > 0 ? (
+            {attrKeywords.length > 0 ? (
               <div className="truncate text-[11px] text-zinc-400">
-                {matchedKeywords.slice(0, 3).join(" · ")}
+                {attrKeywords.slice(0, 3).join(" · ")}
               </div>
             ) : null}
             {Object.keys(asset.attributes).length > 0 ? (

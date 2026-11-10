@@ -36,27 +36,23 @@ export function AssetNode({
         .filter((value) => attrValues(asset.attributes, key).includes(value))
         .map((value) => optionLabel(key, value)),
     )[0];
-  const tagLabel = assetTags
+  const ownTags = assetTags
     .filter((link) => link.asset_id === asset.id)
     .map((link) => tagById.get(link.tag_id))
-    .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
-    .filter((tag) => {
-      if (activeFilterTagIds.size > 0) return activeFilterTagIds.has(tag.id);
-      const activeTabs = [...filterKinds, ...filterCustomTabs];
-      return (
-        activeTabs.length === 0 ||
-        activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId))
-      );
-    })
-    .map((tag) => tr(tag.name))[0];
-  const label = attrLabel ?? tagLabel ?? "";
+    .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined);
+  const activeTabs = [...filterKinds, ...filterCustomTabs];
+  const preferredTags = ownTags.filter((tag) =>
+    activeFilterTagIds.size > 0
+      ? activeFilterTagIds.has(tag.id)
+      : activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)),
+  );
+  const tagLabel = (preferredTags[0] ?? ownTags[0])?.name;
+  const label = attrLabel ?? (tagLabel ? tr(tagLabel) : "");
+  const expandedTags = expandedTopTabId
+    ? ownTags.filter((tag) => tagMatchesTopTab(tag, expandedTopTabId))
+    : [];
   const categoryKeywords = expandedTopTabId
-    ? assetTags
-        .filter((link) => link.asset_id === asset.id)
-        .flatMap((link) => {
-          const tag = tagById.get(link.tag_id);
-          return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tr(tag.name)] : [];
-        })
+    ? (expandedTags.length > 0 ? expandedTags : ownTags).map((tag) => tr(tag.name))
     : null;
 
   return (
@@ -110,15 +106,12 @@ export function AssetNode({
           </div>
         ) : null}
       </div>
-      {categoryKeywords ? (
+      {categoryKeywords && categoryKeywords.length > 0 ? (
         <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-full line-clamp-2 pb-1 leading-snug",
-            categoryKeywords.length > 0 ? "text-zinc-100" : "text-zinc-600",
-          )}
+          className="pointer-events-none absolute inset-x-0 bottom-full line-clamp-2 pb-1 leading-snug text-zinc-100"
           style={{ fontSize: Math.min(28, 12 / Math.max(scale, 0.3)) }}
         >
-          {categoryKeywords.length > 0 ? categoryKeywords.join(" · ") : "—"}
+          {categoryKeywords.join(" · ")}
         </div>
       ) : null}
       {selected ? (
