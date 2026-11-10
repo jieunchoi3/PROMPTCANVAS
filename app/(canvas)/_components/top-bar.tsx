@@ -78,6 +78,7 @@ export function TopBar() {
   const customTopCategories = useCanvas((s) => s.customTopCategories);
   const addCustomTopCategory = useCanvas((s) => s.addCustomTopCategory);
   const filterSheetTypes = useCanvas((s) => s.filterSheetTypes);
+  const promptSheets = useCanvas((s) => s.promptSheets);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const canEdit = useCanvas((s) => s.canEdit);
   const attrFilters = useCanvas((s) => s.attrFilters);
@@ -168,21 +169,38 @@ export function TopBar() {
 
         {promptsBoard ? (
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {PROMPT_SHEET_TYPES.map((type) => {
-              const on = filterSheetTypes.includes(type.value);
+            {[
+              { value: null, label: S.allTypes, count: promptSheets.length },
+              ...PROMPT_SHEET_TYPES.map((type) => ({
+                value: type.value,
+                label: type.label,
+                count: promptSheets.filter((p) => p.sheet_type === type.value).length,
+              })),
+            ].map((chip) => {
+              const on =
+                chip.value === null
+                  ? filterSheetTypes.length === 0
+                  : filterSheetTypes.includes(chip.value);
               return (
                 <button
-                  key={type.value}
+                  key={chip.value ?? "all"}
                   type="button"
-                  onClick={() => useCanvas.getState().toggleFilterSheetType(type.value)}
+                  onClick={() =>
+                    chip.value === null
+                      ? useCanvas.setState({ filterSheetTypes: [] })
+                      : useCanvas.getState().toggleFilterSheetType(chip.value)
+                  }
                   className={cn(
-                    "h-6 shrink-0 rounded-full px-2 text-[12px]",
+                    "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px]",
                     on
                       ? "bg-[#D9B382] text-[#0B0B0D]"
                       : "bg-white/5 text-zinc-400 hover:bg-white/10",
                   )}
                 >
-                  {type.label}
+                  {chip.label}
+                  <span className={cn("text-[10px]", on ? "text-[#0B0B0D]/60" : "text-zinc-600")}>
+                    {chip.count}
+                  </span>
                 </button>
               );
             })}
