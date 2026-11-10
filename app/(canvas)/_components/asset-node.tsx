@@ -23,6 +23,7 @@ export function AssetNode({
   const filterCustomTabs = useCanvas((s) => s.filterCustomTabs);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const attrFilters = useCanvas((s) => s.attrFilters);
+  const expandedTopTabId = useCanvas((s) => s.expandedTopTabId);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
@@ -47,6 +48,14 @@ export function AssetNode({
     })
     .map((tag) => tag.name)[0];
   const label = attrLabel ?? tagLabel ?? asset.title ?? "";
+  const categoryKeywords = expandedTopTabId
+    ? assetTags
+        .filter((link) => link.asset_id === asset.id)
+        .flatMap((link) => {
+          const tag = tagById.get(link.tag_id);
+          return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tag.name] : [];
+        })
+    : null;
 
   return (
     <div
@@ -93,12 +102,23 @@ export function AssetNode({
             className="pointer-events-none h-full w-full object-cover"
           />
         )}
-        {label ? (
+        {label && !categoryKeywords ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[10px] text-zinc-200">
             <div className="truncate">{label}</div>
           </div>
         ) : null}
       </div>
+      {categoryKeywords ? (
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-full line-clamp-2 pb-1 leading-snug",
+            categoryKeywords.length > 0 ? "text-zinc-100" : "text-zinc-600",
+          )}
+          style={{ fontSize: Math.min(28, 12 / Math.max(scale, 0.3)) }}
+        >
+          {categoryKeywords.length > 0 ? categoryKeywords.join(" · ") : "—"}
+        </div>
+      ) : null}
       {selected ? (
         <button
           type="button"
