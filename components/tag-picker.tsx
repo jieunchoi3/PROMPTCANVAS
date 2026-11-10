@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
-import { groupTags } from "@/lib/tag-kinds";
+import { groupTags, filterTagsByDraft } from "@/lib/tag-kinds";
 import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import {
@@ -44,11 +44,12 @@ export function TagPicker({
   const activeTags = useMemo(() => tags.filter((tag) => active.has(tag.id)), [tags, active]);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
-  const tabItems = activeTab
+  const allTabItems = activeTab
     ? activeTab.builtin
       ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
       : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
     : [];
+  const tabItems = filterTagsByDraft(allTabItems, draft, tr);
 
   async function addDraft() {
     if (!activeTab) return;

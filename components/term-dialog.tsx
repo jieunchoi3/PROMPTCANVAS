@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
-import { groupTags } from "@/lib/tag-kinds";
+import { groupTags, filterTagsByDraft } from "@/lib/tag-kinds";
 import { customCategoryId, mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
 import { useTr } from "@/hooks/use-tr";
@@ -160,9 +160,11 @@ export function TermDialog() {
       if (!asset) throw new Error("upload_failed");
       const state = useCanvas.getState();
       state.select([asset.id]);
-      for (const keyword of keywords) {
-        await state.addTagToSelection(keyword.name, keyword.kind, keyword.categoryKey);
-      }
+      await Promise.all(
+        keywords.map((keyword) =>
+          state.addTagToSelection(keyword.name, keyword.kind, keyword.categoryKey),
+        ),
+      );
       if (fullPrompt.trim()) {
         state.updateFields(asset.id, { prompt: fullPrompt.trim() }, false);
       }
@@ -189,11 +191,12 @@ export function TermDialog() {
     }
   }
 
-  const tabItems = activeTab
+  const allTabItems = activeTab
     ? activeTab.builtin
       ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
       : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
     : [];
+  const tabItems = filterTagsByDraft(allTabItems, draft, tr);
   const pickedKeys = new Set(picked.map(keywordKey));
 
   return (

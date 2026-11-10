@@ -44,3 +44,22 @@ export function groupTags(tags: Tag[]): { kind: TagKind; items: Tag[] }[] {
     ),
   })).filter((g) => g.items.length > 0);
 }
+
+function normalizeKeyword(text: string): string {
+  return text.toLowerCase().replace(/[\s\-_/.,]+/g, "");
+}
+
+/** While typing a new keyword, only existing keywords matching the last comma-separated part stay visible. */
+export function filterTagsByDraft<T extends { name: string }>(
+  items: T[],
+  draft: string,
+  display: (name: string) => string = (name) => name,
+): T[] {
+  const query = normalizeKeyword(draft.split(",").pop() ?? "");
+  if (!query) return items;
+  return items.filter(
+    (item) =>
+      normalizeKeyword(item.name).includes(query) ||
+      normalizeKeyword(display(item.name)).includes(query),
+  );
+}

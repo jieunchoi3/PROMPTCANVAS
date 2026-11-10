@@ -293,19 +293,17 @@ export function createSupabaseRepo(): LibraryRepo {
       const ext = extOf(input.file.name, input.file.type);
       const storage_path = `${user_id}/${input.id}.${ext}`;
       const thumb_path = `${user_id}/thumbs/${input.id}.webp`;
-      const up1 = await supabase.storage
-        .from(PROMPT_CANVAS_MEDIA_BUCKET)
-        .upload(storage_path, input.file, { contentType: input.file.type, upsert: false });
+      const [up1, up2, { data: boardRow }] = await Promise.all([
+        supabase.storage
+          .from(PROMPT_CANVAS_MEDIA_BUCKET)
+          .upload(storage_path, input.file, { contentType: input.file.type, upsert: false }),
+        supabase.storage
+          .from(PROMPT_CANVAS_MEDIA_BUCKET)
+          .upload(thumb_path, input.thumb, { contentType: "image/webp", upsert: true }),
+        supabase.from("boards").select("kind").eq("id", boardId).maybeSingle(),
+      ]);
       if (up1.error) throw up1.error;
-      const up2 = await supabase.storage
-        .from(PROMPT_CANVAS_MEDIA_BUCKET)
-        .upload(thumb_path, input.thumb, { contentType: "image/webp", upsert: true });
       if (up2.error) throw up2.error;
-      const { data: boardRow } = await supabase
-        .from("boards")
-        .select("kind")
-        .eq("id", boardId)
-        .maybeSingle();
       const row = {
         id: input.id,
         user_id,

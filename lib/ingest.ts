@@ -80,9 +80,9 @@ async function prepareFile(file: File): Promise<Omit<NewAssetInput, "x" | "y" | 
       title: file.name.replace(/\.[^.]+$/, ""),
     };
   }
-  const thumb = await makeImageThumb(file);
+  const thumb = await makeImageThumb(file, { compress: true });
   return {
-    file,
+    file: thumb.original,
     thumb: thumb.blob,
     kind,
     width: thumb.width,
@@ -158,12 +158,6 @@ export async function ingestFiles(
             w: item.w,
             z_index: item.z_index,
             prompt: asset.prompt,
-          },
-        ]);
-        await getRepo().updateAssets([
-          {
-            id: asset.id,
-            fields: { x: item.x, y: item.y, w: item.w, z_index: item.z_index },
           },
         ]);
         useCanvas.getState().setUploads(

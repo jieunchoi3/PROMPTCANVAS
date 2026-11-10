@@ -8,6 +8,9 @@ import {
 import { S } from "@/lib/strings";
 import type { AssetKind } from "@/lib/types";
 
+const UPLOAD_COMPRESS_MIN_BYTES = 1.5 * 1024 * 1024;
+const UPLOAD_LONG_EDGE = 3072;
+
 export function kindFromMime(mime: string): AssetKind | null {
   const lower = mime.toLowerCase();
   if (IMAGE_MIMES.includes(lower as (typeof IMAGE_MIMES)[number])) return "image";
@@ -38,7 +41,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasToWebp(canvas: HTMLCanvasElement, quality = 0.82): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -46,7 +49,7 @@ function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
         else reject(new Error("thumb encode failed"));
       },
       "image/webp",
-      0.82,
+      quality,
     );
   });
 }
@@ -55,9 +58,10 @@ function drawThumb(
   source: CanvasImageSource,
   sw: number,
   sh: number,
+  maxEdge = THUMB_LONG_EDGE,
 ): HTMLCanvasElement {
   const long = Math.max(sw, sh);
-  const scale = long > THUMB_LONG_EDGE ? THUMB_LONG_EDGE / long : 1;
+  const scale = long > maxEdge ? maxEdge / long : 1;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
@@ -67,17 +71,46 @@ function drawThumb(
   return canvas;
 }
 
-export async function makeImageThumb(file: Blob): Promise<{
+/** Big stills (usually PNG screenshots) are re-encoded so the upload stays small; GIFs keep their animation. */
+async function compressOriginal(
+  file: File,
+  img: HTMLImageElement,
+): Promise<{ file: File; width: number; height: number } | null> {
+  if (file.size < UPLOAD_COMPRESS_MIN_BYTES || file.type === "image/gif") return null;
+  const canvas = drawThumb(img, img.naturalWidth, img.naturalHeight, UPLOAD_LONG_EDGE);
+  const blob = await canvasToWebp(canvas, 0.92);
+  if (blob.size >= file.size) return null;
+  const name = `${file.name.replace(/\.[^.]+$/, "") || "image"}.webp`;
+  return {
+    file: new File([blob], name, { type: "image/webp" }),
+    width: canvas.width,
+    height: canvas.height,
+  };
+}
+
+export async function makeImageThumb(
+  file: File,
+  { compress = false }: { compress?: boolean } = {},
+): Promise<{
   blob: Blob;
   width: number;
   height: number;
+  original: File;
 }> {
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url);
     const canvas = drawThumb(img, img.naturalWidth, img.naturalHeight);
-    const blob = await canvasToWebp(canvas);
-    return { blob, width: img.naturalWidth, height: img.naturalHeight };
+    const [blob, compressed] = await Promise.all([
+      canvasToWebp(canvas),
+      compress ? compressOriginal(file, img).catch(() => null) : null,
+    ]);
+    return {
+      blob,
+      width: compressed?.width ?? img.naturalWidth,
+      height: compressed?.height ?? img.naturalHeight,
+      original: compressed?.file ?? file,
+    };
   } finally {
     URL.revokeObjectURL(url);
   }
