@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTr } from "@/hooks/use-tr";
 import { PromptsBoard } from "./prompts-board";
 import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
@@ -68,6 +69,7 @@ function masonryColumns<T>(
 }
 
 export function LibraryBoard() {
+  const tr = useTr();
   const assets = useCanvas((s) => s.assets);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
@@ -132,7 +134,7 @@ export function LibraryBoard() {
   ].join(" · ");
   const activeTagNames = tags
     .filter((t) => filterTagIds.includes(t.id))
-    .map((t) => t.name)
+    .map((t) => tr(t.name))
     .join(" · ");
   const activeAttrNames = Object.entries(attrFilters)
     .flatMap(([key, values]) => values.map((value) => optionLabel(key, value)))
@@ -195,13 +197,13 @@ export function LibraryBoard() {
               ? [tag]
               : [];
           })
-          .map((tag) => tag.name);
+          .map((tag) => tr(tag.name));
     const categoryKeywords = expandedTopTabId
       ? assetTags
           .filter((link) => link.asset_id === asset.id)
           .flatMap((link) => {
             const tag = tagById.get(link.tag_id);
-            return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tag.name] : [];
+            return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tr(tag.name)] : [];
           })
       : null;
     return (
@@ -270,7 +272,7 @@ export function LibraryBoard() {
             ) : null}
             {asset.prompt ? (
               <div className="line-clamp-3 text-[11px] leading-snug text-zinc-300">
-                {asset.prompt}
+                {tr(asset.prompt)}
               </div>
             ) : null}
           </div>

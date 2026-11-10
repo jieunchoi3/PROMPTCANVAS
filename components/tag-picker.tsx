@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
 import { groupTags } from "@/lib/tag-kinds";
+import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import {
   customCategoryId,
@@ -33,7 +34,11 @@ export function TagPicker({
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
-  const tabs = useMemo(() => mergeTopTabs(customTopCategories), [customTopCategories]);
+  const tr = useTr();
+  const tabs = useMemo(
+    () => mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) })),
+    [customTopCategories, tr],
+  );
   const grouped = useMemo(() => groupTags(tags), [tags]);
   const active = useMemo(() => new Set(activeIds), [activeIds]);
   const activeTags = useMemo(() => tags.filter((tag) => active.has(tag.id)), [tags, active]);
@@ -85,7 +90,7 @@ export function TagPicker({
             <span className="shrink-0 text-[10px] text-[#D9B382]/60">
               {tabFor(tag, tabs)?.label}
             </span>
-            <span className="min-w-0 break-words">{tag.name}</span>
+            <span className="min-w-0 break-words">{tr(tag.name)}</span>
             {canEdit ? (
               <button
                 type="button"
@@ -178,7 +183,7 @@ export function TagPicker({
                         : "bg-white/5 text-zinc-400 hover:bg-white/10",
                     )}
                   >
-                    {tag.name}
+                    {tr(tag.name)}
                   </button>
                 );
               })}

@@ -589,6 +589,25 @@ export function createSupabaseRepo(): LibraryRepo {
       });
       if (error) throw error;
     },
+    async listTranslations() {
+      const { data, error } = await supabase
+        .from("translations")
+        .select("source, translated")
+        .eq("lang", "en")
+        .range(0, 9999);
+      if (error) throw error;
+      return Object.fromEntries(
+        (data as { source: string; translated: string }[]).map((r) => [r.source, r.translated]),
+      );
+    },
+    async saveTranslations(rows) {
+      if (rows.length === 0) return;
+      const { error } = await supabase.from("translations").upsert(
+        rows.map((r) => ({ source: r.source, translated: r.translated, lang: "en" })),
+        { onConflict: "source_md5,lang" },
+      );
+      if (error) throw error;
+    },
   };
   return repo;
 }

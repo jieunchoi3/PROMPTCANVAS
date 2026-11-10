@@ -4,6 +4,12 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { PERSIST_MS, UNDO_TOAST_MS } from "@/lib/constants";
 import { getRepo } from "@/lib/data/get-repo";
+import {
+  readTranslationCache,
+  translateMissing,
+  writeTranslationCache,
+} from "@/lib/auto-translate";
+import { getLocale } from "@/lib/locale";
 import type { LibrarySnapshot } from "@/lib/data/repo";
 import { ensureStarterTags } from "@/lib/seed-local";
 import { fetchImageBase64 } from "@/lib/image-base64";
@@ -46,12 +52,15 @@ type FieldPatch = {
   negative_prompt?: string;
   model?: string;
   title?: string;
+  source_note?: string;
   attributes?: AttributeMap;
   is_character?: boolean;
 };
 
 type CanvasState = {
   ready: boolean;
+  /** Korean source text → English, for English-language viewers. */
+  translations: Record<string, string>;
   loadError: string | null;
   mode: "local" | "cloud";
   canEdit: boolean;
@@ -264,6 +273,38 @@ function rememberBoard(boardId: string): void {
   }
 }
 
+let translationWatcherStarted = false;
+
+/** Owner only: keeps English translations in step with Korean content as it is loaded or edited. */
+function startTranslationWatcher(): void {
+  if (translationWatcherStarted) return;
+  translationWatcherStarted = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const run = () => {
+    const state = useCanvas.getState();
+    if (!state.canEdit) return;
+    void translateMissing(state, state.translations, (added) => {
+      const translations = { ...useCanvas.getState().translations, ...added };
+      useCanvas.setState({ translations });
+      writeTranslationCache(translations);
+    });
+  };
+  run();
+  useCanvas.subscribe((s, prev) => {
+    if (
+      s.boards !== prev.boards ||
+      s.tags !== prev.tags ||
+      s.assets !== prev.assets ||
+      s.promptSheets !== prev.promptSheets ||
+      s.characters !== prev.characters ||
+      s.customTopCategories !== prev.customTopCategories
+    ) {
+      clearTimeout(timer);
+      timer = setTimeout(run, 3000);
+    }
+  });
+}
+
 const EDIT_ACTIONS = [
   "createBoard",
   "moveBoard",
@@ -312,6 +353,7 @@ function guardEdits(state: CanvasState, canEdit: () => boolean): CanvasState {
 
 export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   ready: false,
+  translations: {},
   loadError: null,
   mode: "local",
   canEdit: false,
@@ -351,7 +393,11 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   future: [],
 
   load: async () => {
-    set({ loadError: null, panelCollapsed: readPanelCollapsed() });
+    set({
+      loadError: null,
+      panelCollapsed: readPanelCollapsed(),
+      ...(getLocale() === "en" ? { translations: readTranslationCache() } : {}),
+    });
     const repo = getRepo();
     const cached = repo.mode === "cloud" ? readSnapshotCache() : null;
     let canEdit = false;
@@ -391,6 +437,16 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
         });
       }
       if (canEdit) void ensureStarterTags(repo).catch(() => {});
+      if (getLocale() === "en" || canEdit) {
+        void repo
+          .listTranslations()
+          .then((translations) => {
+            set({ translations });
+            writeTranslationCache(translations);
+            if (canEdit) startTranslationWatcher();
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       console.error("[canvas] load failed", err);
       if (historyAtCache >= 0) return;

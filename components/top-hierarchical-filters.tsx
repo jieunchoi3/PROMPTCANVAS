@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import { mergeTopTabs, tagMatchesTopTab, type TopCategoryTab } from "@/lib/top-categories";
 import type { Tag } from "@/lib/types";
@@ -84,7 +85,8 @@ export function TagTopFilters({
   const toggleFilterTag = useCanvas((s) => s.toggleFilterTag);
   const expandedTabId = useCanvas((s) => s.expandedTopTabId);
   const setExpandedTabId = useCanvas((s) => s.setExpandedTopTabId);
-  const tabs = mergeTopTabs(customTopCategories);
+  const tr = useTr();
+  const tabs = mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) }));
   const expanded = tabs.find((tab) => tab.id === expandedTabId) ?? null;
   const items = expanded
     ? tags.filter((tag) => tagMatchesTopTab(tag, expanded.id))
@@ -117,7 +119,7 @@ export function TagTopFilters({
                   onClick={() => toggleFilterTag(tag.id)}
                   className={cn(pillBase, on ? pillOn : pillOff)}
                 >
-                  {tag.name}
+                  {tr(tag.name)}
                 </button>
               );
             })

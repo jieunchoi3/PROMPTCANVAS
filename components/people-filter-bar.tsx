@@ -1,6 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useTr } from "@/hooks/use-tr";
 import { CHARACTER_ATTRIBUTES, PRIMARY_ATTR_KEYS } from "@/config/character-attributes";
 import { attrValues, optionLabel, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
@@ -15,6 +16,7 @@ export function PeopleFilterBar() {
   const selectCharacter = useCanvas((s) => s.selectCharacter);
   const deleteCharacter = useCanvas((s) => s.deleteCharacter);
   const canEdit = useCanvas((s) => s.canEdit);
+  const tr = useTr();
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto border-r border-white/10 bg-[#0D0D0F] px-3 py-3 text-[12px]" style={{ maxWidth: 220 }}>
@@ -73,7 +75,7 @@ export function PeopleFilterBar() {
                 className="min-w-0 flex-1 truncate text-left text-zinc-200"
                 onClick={() => selectCharacter(c.id)}
               >
-                {c.name}
+                {tr(c.name)}
                 <span className="ml-1 text-[10px] text-zinc-600">
                   {attrValues(c.attributes, "gender")
                     .map((v) => optionLabel("gender", v))

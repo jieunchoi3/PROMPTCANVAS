@@ -70,4 +70,7 @@ export type LibraryRepo = {
   deletePromptSheet(id: string): Promise<void>;
   listCustomTopCategories(): Promise<{ id: string; label: string }[]>;
   saveCustomTopCategories(categories: { id: string; label: string }[]): Promise<void>;
+  /** Source text → English translation of the owner's Korean content. */
+  listTranslations(): Promise<Record<string, string>>;
+  saveTranslations(rows: { source: string; translated: string }[]): Promise<void>;
 };

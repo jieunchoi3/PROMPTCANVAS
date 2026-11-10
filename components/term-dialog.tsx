@@ -17,6 +17,7 @@ import { S } from "@/lib/strings";
 import { groupTags } from "@/lib/tag-kinds";
 import { customCategoryId, mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
+import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import { useCanvas } from "@/store/canvas-store";
 
@@ -43,11 +44,16 @@ export function TermDialog() {
   const [draft, setDraft] = useState("");
   const [picked, setPicked] = useState<PickedKeyword[]>([]);
   const [fullPrompt, setFullPrompt] = useState("");
+  const [notes, setNotes] = useState("");
   const [runReverse, setRunReverse] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  const tabs = useMemo(() => mergeTopTabs(customTopCategories), [customTopCategories]);
+  const tr = useTr();
+  const tabs = useMemo(
+    () => mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) })),
+    [customTopCategories, tr],
+  );
   const grouped = useMemo(() => groupTags(tags), [tags]);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
@@ -86,6 +92,7 @@ export function TermDialog() {
     setDraft("");
     setPicked([]);
     setFullPrompt("");
+    setNotes("");
     setRunReverse(false);
     setActiveTabId(null);
   }
@@ -99,13 +106,13 @@ export function TermDialog() {
     );
   }
 
-  async function addDraft() {
-    if (!activeTab) return;
+  async function addDraft(): Promise<PickedKeyword[]> {
+    if (!activeTab) return [];
     const names = draft
       .split(",")
       .map((name) => name.trim())
       .filter(Boolean);
-    if (names.length === 0) return;
+    if (names.length === 0) return [];
     setDraft("");
     const kind: TagKind = activeTab.builtin ? activeTab.id : "free";
     const categoryKey = activeTab.builtin ? null : activeTab.id;
@@ -128,6 +135,7 @@ export function TermDialog() {
       const keys = new Set(current.map(keywordKey));
       return [...current, ...added.filter((k) => !keys.has(keywordKey(k)))];
     });
+    return added;
   }
 
   async function addCategory() {
@@ -144,15 +152,22 @@ export function TermDialog() {
     }
     setSaving(true);
     try {
+      // A keyword typed but not yet confirmed with Enter still counts.
+      const pending = await addDraft();
+      const pickedKeys = new Set(picked.map(keywordKey));
+      const keywords = [...picked, ...pending.filter((k) => !pickedKeys.has(keywordKey(k)))];
       const [asset] = await ingestFiles([file], "center");
       if (!asset) throw new Error("upload_failed");
       const state = useCanvas.getState();
       state.select([asset.id]);
-      for (const keyword of picked) {
+      for (const keyword of keywords) {
         await state.addTagToSelection(keyword.name, keyword.kind, keyword.categoryKey);
       }
       if (fullPrompt.trim()) {
         state.updateFields(asset.id, { prompt: fullPrompt.trim() }, false);
+      }
+      if (notes.trim()) {
+        state.updateFields(asset.id, { source_note: notes.trim() }, false);
       }
       toast.success(S.termSaved);
       const shouldReverse = runReverse && !fullPrompt.trim() && asset.kind === "image";
@@ -324,7 +339,7 @@ export function TermDialog() {
                                 : "bg-white/5 text-zinc-400 hover:bg-white/10",
                             )}
                           >
-                            {tag.name}
+                            {tr(tag.name)}
                           </button>
                         );
                       })}
@@ -346,7 +361,7 @@ export function TermDialog() {
                       className="inline-flex h-6 items-center gap-1 rounded-full bg-[#D9B382]/15 pr-1 pl-2 text-[12px] text-[#D9B382]"
                     >
                       <span className="text-[10px] text-[#D9B382]/60">{k.tabLabel}</span>
-                      {k.name}
+                      {tr(k.name)}
                       <button
                         type="button"
                         aria-label={S.tagDelete}
@@ -360,6 +375,18 @@ export function TermDialog() {
                 </div>
               </div>
             ) : null}
+
+            <div className="space-y-1.5">
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500">
+                {S.termNotes}
+              </div>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={S.termNotesPh}
+                className="min-h-14 border-white/10 bg-black/40 text-[13px]"
+              />
+            </div>
 
             <div className="space-y-1.5">
               <div className="text-[11px] uppercase tracking-wide text-zinc-500">

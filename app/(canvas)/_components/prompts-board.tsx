@@ -4,6 +4,7 @@ import { Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { sheetTypeLabel } from "@/config/prompt-sheet-types";
 import { Button } from "@/components/ui/button";
+import { useTr } from "@/hooks/use-tr";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { filteredPromptSheets, useCanvas } from "@/store/canvas-store";
@@ -16,6 +17,7 @@ export function PromptsBoard() {
   const selectPrompt = useCanvas((s) => s.selectPrompt);
   const deletePromptSheet = useCanvas((s) => s.deletePromptSheet);
   const canEdit = useCanvas((s) => s.canEdit);
+  const tr = useTr();
 
   const visible = filteredPromptSheets({
     ...useCanvas.getState(),
@@ -83,10 +85,10 @@ export function PromptsBoard() {
                         ) : null}
                       </div>
                       <div className="truncate text-[13px] text-zinc-200">
-                        {prompt.title || S.promptTitlePh}
+                        {tr(prompt.title) || S.promptTitlePh}
                       </div>
                       <div className="mt-2 line-clamp-4 whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-400">
-                        {prompt.body || " "}
+                        {tr(prompt.body) || " "}
                       </div>
                     </button>
                     <div className="mt-2 flex gap-1">
@@ -95,7 +97,7 @@ export function PromptsBoard() {
                         variant="ghost"
                         className="h-6"
                         disabled={!prompt.body.trim()}
-                        onClick={() => void copyPrompt(prompt.body)}
+                        onClick={() => void copyPrompt(tr(prompt.body))}
                       >
                         <Copy className="size-3" />
                         {S.copy}

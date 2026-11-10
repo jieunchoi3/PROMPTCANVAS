@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { optionLabel } from "@/lib/attributes";
 import { formatDate } from "@/lib/env";
 import { downloadAsset } from "@/lib/download-asset";
+import { useTr } from "@/hooks/use-tr";
 import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { isPeopleBoard, isVideoBoard, isWardrobeBoard, useCanvas } from "@/store/canvas-store";
@@ -39,6 +40,7 @@ export function Inspector() {
   const analyzeWardrobeAsset = useCanvas((s) => s.analyzeWardrobeAsset);
   const analyzeCharacterAsset = useCanvas((s) => s.analyzeCharacterAsset);
   const canEdit = useCanvas((s) => s.canEdit);
+  const tr = useTr();
   const [copied, setCopied] = useState(false);
 
   const asset = selectedIds.length === 1 ? assets.find((a) => a.id === selectedIds[0]) : undefined;
@@ -90,7 +92,7 @@ export function Inspector() {
         <span className="normal-case tracking-normal">{S.charCount(asset.prompt.length)}</span>
       </div>
       <Textarea
-        value={asset.prompt}
+        value={canEdit ? asset.prompt : tr(asset.prompt)}
         readOnly={!canEdit}
         onChange={(e) => updateFields(asset.id, { prompt: e.target.value })}
         className="min-h-28 resize-y border-white/10 bg-black/40 text-[13px] leading-relaxed"
@@ -100,7 +102,7 @@ export function Inspector() {
         size="sm"
         className="mt-2 h-7 w-full"
         onClick={async () => {
-          await navigator.clipboard.writeText(asset.prompt);
+          await navigator.clipboard.writeText(canEdit ? asset.prompt : tr(asset.prompt));
           setCopied(true);
           toast.success(S.copied);
           setTimeout(() => setCopied(false), 1200);
@@ -109,6 +111,21 @@ export function Inspector() {
         {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         {S.copy}
       </Button>
+
+      {canEdit || asset.source_note ? (
+        <>
+          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+            {S.termNotes}
+          </div>
+          <Textarea
+            value={canEdit ? asset.source_note : tr(asset.source_note)}
+            readOnly={!canEdit}
+            placeholder={S.termNotesPh}
+            onChange={(e) => updateFields(asset.id, { source_note: e.target.value })}
+            className="min-h-14 resize-y border-white/10 bg-black/40 text-[13px] leading-relaxed"
+          />
+        </>
+      ) : null}
 
       <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
         {S.inspectorModel}
@@ -289,7 +306,7 @@ export function Inspector() {
           {S.added}: {formatDate(asset.created_at)}
         </div>
         <div>
-          {S.board}: {board ? `${board.emoji} ${boardLabel(board)}` : S.none}
+          {S.board}: {board ? `${board.emoji} ${tr(boardLabel(board))}` : S.none}
         </div>
         <div>
           {S.group}: {S.none}

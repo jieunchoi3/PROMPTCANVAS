@@ -7,6 +7,7 @@ import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useTr } from "@/hooks/use-tr";
 import { isTypingTarget } from "@/lib/env";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const uploadPromptPreview = useCanvas((s) => s.uploadPromptPreview);
   const models = useCanvas((s) => s.models);
   const canEdit = useCanvas((s) => s.canEdit);
+  const tr = useTr();
+  const show = (value: string) => (canEdit ? value : tr(value));
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -117,7 +120,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const promptId = prompt.id;
 
   async function copyAll() {
-    const parts = [body.trim(), negative.trim()].filter(Boolean);
+    const parts = [show(body).trim(), show(negative).trim()].filter(Boolean);
     if (parts.length === 0) return;
     try {
       await navigator.clipboard.writeText(parts.join("\n\n"));
@@ -160,7 +163,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           {S.promptTitle}
         </div>
         <Input
-          value={title}
+          value={show(title)}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => void save()}
           placeholder={S.promptTitlePh}
@@ -171,7 +174,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           {S.promptNotes}
         </div>
         <Textarea
-          value={notes}
+          value={show(notes)}
           onChange={(e) => setNotes(e.target.value)}
           onBlur={() => void save()}
           placeholder={S.promptNotesPh}
@@ -270,7 +273,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           {S.promptBody}
         </div>
         <Textarea
-          value={body}
+          value={show(body)}
           onChange={(e) => setBody(e.target.value)}
           onBlur={() => void save()}
           placeholder={S.promptBodyPh}
@@ -281,7 +284,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           {S.inspectorPrompt} (negative)
         </div>
         <Textarea
-          value={negative}
+          value={show(negative)}
           onChange={(e) => setNegative(e.target.value)}
           onBlur={() => void save()}
           placeholder="negative prompt"

@@ -1,6 +1,7 @@
 "use client";
 
 import { isPromptsBoard } from "@/lib/board-kind";
+import { useTr } from "@/hooks/use-tr";
 import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ export function BoardMovePicker({
 }) {
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
+  const tr = useTr();
   const destinations = boards.filter(
     (board) => board.id !== boardId && !isPromptsBoard(board),
   );
@@ -36,7 +38,7 @@ export function BoardMovePicker({
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-zinc-200 hover:bg-white/10"
         >
           <span>{board.emoji}</span>
-          <span className="truncate">{boardLabel(board)}</span>
+          <span className="truncate">{tr(boardLabel(board))}</span>
         </button>
       ))}
     </div>

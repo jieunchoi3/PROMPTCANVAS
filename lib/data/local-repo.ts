@@ -25,6 +25,7 @@ import type { LibraryRepo } from "@/lib/data/repo";
 const DB_NAME = "prompt-canvas";
 const DB_VERSION = 4;
 const USER_KEY = "pc.localUserId";
+const LOCAL_TRANSLATIONS_KEY = "pc.translations.local";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -691,6 +692,21 @@ export function createLocalRepo(): LibraryRepo {
     },
     async saveCustomTopCategories(categories: CustomTopCategory[]) {
       writeCustomTopCategories(categories);
+    },
+    async listTranslations() {
+      try {
+        return JSON.parse(localStorage.getItem(LOCAL_TRANSLATIONS_KEY) ?? "{}") as Record<
+          string,
+          string
+        >;
+      } catch {
+        return {};
+      }
+    },
+    async saveTranslations(rows) {
+      const current = await repo.listTranslations();
+      for (const r of rows) current[r.source] = r.translated;
+      localStorage.setItem(LOCAL_TRANSLATIONS_KEY, JSON.stringify(current));
     },
   };
   return repo;

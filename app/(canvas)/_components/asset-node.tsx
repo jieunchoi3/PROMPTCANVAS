@@ -1,6 +1,7 @@
 "use client";
 
 import { assetHeight } from "@/lib/canvas-geometry";
+import { useTr } from "@/hooks/use-tr";
 import { ACCENT } from "@/lib/constants";
 import { attrValues, optionLabel } from "@/lib/attributes";
 import { tagMatchesTopTab } from "@/lib/top-categories";
@@ -26,6 +27,7 @@ export function AssetNode({
   const expandedTopTabId = useCanvas((s) => s.expandedTopTabId);
   const tags = useCanvas((s) => s.tags);
   const assetTags = useCanvas((s) => s.assetTags);
+  const tr = useTr();
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   const activeFilterTagIds = new Set(filterTagIds);
   const attrLabel = Object.entries(attrFilters)
@@ -46,14 +48,14 @@ export function AssetNode({
         activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId))
       );
     })
-    .map((tag) => tag.name)[0];
+    .map((tag) => tr(tag.name))[0];
   const label = attrLabel ?? tagLabel ?? "";
   const categoryKeywords = expandedTopTabId
     ? assetTags
         .filter((link) => link.asset_id === asset.id)
         .flatMap((link) => {
           const tag = tagById.get(link.tag_id);
-          return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tag.name] : [];
+          return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tr(tag.name)] : [];
         })
     : null;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
+import { useTr } from "@/hooks/use-tr";
 import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
 import { WARDROBE_ATTRIBUTES } from "@/config/wardrobe-attributes";
 import { AttributeFilters } from "@/components/attribute-filters";
@@ -107,10 +108,11 @@ function CharacterRow({
   onSelect: () => void;
   onDelete?: () => void;
 }) {
+  const tr = useTr();
   return (
     <div className="rounded-md border border-white/10 bg-black/20 p-2">
       <button type="button" className="w-full text-left" onClick={onSelect}>
-        <div className="text-[13px] text-zinc-200">{character.name}</div>
+        <div className="text-[13px] text-zinc-200">{tr(character.name)}</div>
         <div className="mt-1 line-clamp-2 text-[11px] text-zinc-500">
           {character.base_prompt || " "}
         </div>
