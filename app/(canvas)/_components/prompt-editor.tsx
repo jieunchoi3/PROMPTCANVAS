@@ -168,6 +168,17 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
         />
 
         <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+          {S.promptNotes}
+        </div>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={() => void save()}
+          placeholder={S.promptNotesPh}
+          className="mb-3 min-h-16 border-white/10 bg-black/20 text-[13px]"
+        />
+
+        <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
           {S.promptPreview}
         </div>
         <div
@@ -304,17 +315,6 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
             ))}
           </div>
         ) : null}
-
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-          {S.promptNotes}
-        </div>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => void save()}
-          placeholder={S.promptNotesPh}
-          className="min-h-16 border-white/10 bg-black/20 text-[13px]"
-        />
       </fieldset>
 
       <div className="space-y-2 border-t border-white/10 p-3">
