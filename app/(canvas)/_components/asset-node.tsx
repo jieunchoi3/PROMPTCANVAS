@@ -47,7 +47,7 @@ export function AssetNode({
       );
     })
     .map((tag) => tag.name)[0];
-  const label = attrLabel ?? tagLabel ?? asset.title ?? "";
+  const label = attrLabel ?? tagLabel ?? "";
   const categoryKeywords = expandedTopTabId
     ? assetTags
         .filter((link) => link.asset_id === asset.id)

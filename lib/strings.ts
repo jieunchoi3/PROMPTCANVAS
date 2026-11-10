@@ -110,7 +110,7 @@ const KO = {
   inspectorPrompt: "프롬프트",
   inspectorModel: "모델",
   inspectorTags: "배우고 싶은 요소",
-  inspectorTagsHint: "큰 카테고리 아래에 세부 키워드를 붙이세요. 예: 카메라 앵글/구도 → dutch tilt",
+  inspectorTagsHint: "카테고리를 고른 뒤 키워드를 만들거나, 아래 키워드를 눌러 붙이세요.",
   inspectorMeta: "정보",
   inspectorReverse: "역분석",
   inspectorReverseSoon: "역분석은 2단계에서 열립니다.",
@@ -339,8 +339,7 @@ const EN: Strings = {
   inspectorPrompt: "Prompt",
   inspectorModel: "Model",
   inspectorTags: "Things to learn",
-  inspectorTagsHint:
-    "Add detailed keywords under a main category. e.g. Camera angle/composition → dutch tilt",
+  inspectorTagsHint: "Pick a category, then create a keyword or click an existing one to add it.",
   inspectorMeta: "Details",
   inspectorReverse: "AI analysis",
   inspectorReverseSoon: "AI analysis opens in phase 2.",

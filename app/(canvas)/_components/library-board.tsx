@@ -241,11 +241,17 @@ export function LibraryBoard() {
             </span>
           ) : null}
         </div>
-        {!compact && !categoryKeywords ? (
+        {!compact &&
+        !categoryKeywords &&
+        (matchedKeywords.length > 0 ||
+          Object.keys(asset.attributes).length > 0 ||
+          asset.prompt) ? (
           <div className="space-y-0.5 px-2 py-1.5">
-            <div className="truncate text-[11px] text-zinc-400">
-              {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}
-            </div>
+            {matchedKeywords.length > 0 ? (
+              <div className="truncate text-[11px] text-zinc-400">
+                {matchedKeywords.slice(0, 3).join(" · ")}
+              </div>
+            ) : null}
             {Object.keys(asset.attributes).length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {Object.entries(asset.attributes)
