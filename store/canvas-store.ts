@@ -89,6 +89,7 @@ type CanvasState = {
   load: () => Promise<void>;
   setBoard: (id: string) => Promise<void>;
   createBoard: (name: string, emoji: string, kind?: BoardKind) => Promise<void>;
+  moveBoard: (id: string, offset: -1 | 1) => Promise<void>;
   setCamera: (camera: Camera) => void;
   setSpaceDown: (v: boolean) => void;
   setMarquee: (r: Rect | null) => void;
@@ -330,6 +331,22 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     const board = await getRepo().createBoard(name, emoji, kind);
     set({ boards: [...get().boards, board] });
     await get().setBoard(board.id);
+  },
+
+  moveBoard: async (id, offset) => {
+    const before = get().boards;
+    const index = before.findIndex((b) => b.id === id);
+    const target = index + offset;
+    if (index < 0 || target < 0 || target >= before.length) return;
+    const next = [...before];
+    [next[index], next[target]] = [next[target], next[index]];
+    set({ boards: next.map((b, position) => ({ ...b, position })) });
+    try {
+      await getRepo().reorderBoards(next.map((b) => b.id));
+    } catch {
+      set({ boards: before });
+      toast.error(S.boardReorderFailed);
+    }
   },
 
   setCamera: (camera) => {

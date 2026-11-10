@@ -16,6 +16,7 @@ export type LibraryRepo = {
   getUserId(): Promise<string>;
   listBoards(): Promise<Board[]>;
   createBoard(name: string, emoji: string, kind?: BoardKind): Promise<Board>;
+  reorderBoards(orderedIds: string[]): Promise<void>;
   listAssets(boardId: string | "all"): Promise<Asset[]>;
   listTags(): Promise<Tag[]>;
   listAssetTags(): Promise<AssetTag[]>;

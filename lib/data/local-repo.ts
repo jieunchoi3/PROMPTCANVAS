@@ -3,7 +3,7 @@ import {
   writeCustomTopCategories,
   type CustomTopCategory,
 } from "@/lib/top-categories";
-import { inferBoardKindPatch, resolveBoardKind } from "@/lib/board-kind";
+import { inferBoardKindPatch, resolveBoardKind, sortBoards } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import { makeImageThumb } from "@/lib/thumbnail";
 import type {
@@ -287,7 +287,19 @@ export function createLocalRepo(): LibraryRepo {
         await txDone(tx);
         next.push(video);
       }
-      return repairBoardKinds(next.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+      return repairBoardKinds(sortBoards(next));
+    },
+    async reorderBoards(orderedIds) {
+      const db = await openDb();
+      const store = db.transaction("boards").objectStore("boards");
+      const rows = await request<Board[]>(store.getAll());
+      const positionById = new Map(orderedIds.map((id, position) => [id, position]));
+      const tx = db.transaction("boards", "readwrite");
+      for (const row of rows) {
+        const position = positionById.get(row.id);
+        if (position !== undefined) tx.objectStore("boards").put({ ...row, position });
+      }
+      await txDone(tx);
     },
     async createBoard(name, emoji, kind: BoardKind = "canvas") {
       const db = await openDb();

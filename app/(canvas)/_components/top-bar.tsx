@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LayoutGrid, Plus, Search, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, LayoutGrid, Plus, Search, Upload } from "lucide-react";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
@@ -29,6 +29,41 @@ import {
   isWardrobeBoard,
   useCanvas,
 } from "@/store/canvas-store";
+
+function BoardMoveButton({
+  label,
+  disabled,
+  onMove,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onMove: () => void;
+  children: React.ReactNode;
+}) {
+  // Swallow pointer events so the surrounding menu item neither selects the board nor closes.
+  function stop(e: React.SyntheticEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onPointerDown={stop}
+      onPointerUp={stop}
+      onClick={(e) => {
+        stop(e);
+        if (!disabled) onMove();
+      }}
+      className="inline-flex size-5 items-center justify-center rounded text-zinc-400 hover:bg-white/10 hover:text-zinc-100 disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
+}
 
 export function TopBar() {
   const pathname = usePathname();
@@ -73,12 +108,31 @@ export function TopBar() {
             <ChevronDown className="size-3.5 opacity-50" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            {boards.map((b) => (
+            {boards.map((b, index) => (
               <DropdownMenuItem
                 key={b.id}
+                className="group/board"
                 onClick={() => void useCanvas.getState().setBoard(b.id)}
               >
-                {b.emoji} {b.name}
+                <span className="min-w-0 flex-1 truncate">
+                  {b.emoji} {b.name}
+                </span>
+                <span className="ml-3 flex shrink-0 items-center gap-0.5 opacity-0 group-hover/board:opacity-100 group-focus/board:opacity-100">
+                  <BoardMoveButton
+                    label={S.boardMoveUp}
+                    disabled={index === 0}
+                    onMove={() => void useCanvas.getState().moveBoard(b.id, -1)}
+                  >
+                    <ChevronUp className="size-3.5" />
+                  </BoardMoveButton>
+                  <BoardMoveButton
+                    label={S.boardMoveDown}
+                    disabled={index === boards.length - 1}
+                    onMove={() => void useCanvas.getState().moveBoard(b.id, 1)}
+                  >
+                    <ChevronDown className="size-3.5" />
+                  </BoardMoveButton>
+                </span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />

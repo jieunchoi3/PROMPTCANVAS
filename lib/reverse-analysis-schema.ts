@@ -62,8 +62,8 @@ Schema:
   "summary_ko": "한 줄 한국어 요약",
   "sections": {
     "subject": "who/what, wardrobe, styling (English)",
-    "pose_composition": "framing, crop, angle (English)",
-    "camera_lens": "focal length, aperture feel, distance (English)",
+    "pose_composition": "the subject's body pose only: stance, gesture, hand placement, head tilt, gaze, expression. Write 'no human pose' if there is no person (English)",
+    "camera_lens": "camera angle, shot size, framing, crop, composition, perspective, focal length, aperture feel, distance (English)",
     "lighting": "key/fill, modifier, direction, contrast (English)",
     "colour": "palette, grading, saturation (English)",
     "style_texture": "rendering style, grain, era (English)",
@@ -82,5 +82,7 @@ Rules:
 - Section values in English. keywords[].why in Korean.
 - Every keywords[].term MUST appear verbatim (case-insensitive) inside the named section text.
 - 8-16 keywords. Prefer technique vocabulary over content nouns.
+- kind "pose" is ONLY for what the person's body is doing (e.g. "hands framing eyes", "crouching", "looking over shoulder"). Never use "pose" for camera terms.
+- kind "camera" covers camera angle, shot size, framing and composition (e.g. "eye-level shot", "high angle", "low angle", "top down", "dutch angle", "over-the-shoulder", "medium close-up", "extreme close-up", "wide shot", "centered composition", "obstructed frame") and lens terms.
 - Never name real people.
 - final_prompt must be self-contained, no bullet points.`;

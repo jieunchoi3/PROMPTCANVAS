@@ -20,6 +20,7 @@ export type Board = {
   name: string;
   emoji: string;
   kind: BoardKind;
+  position?: number | null;
   created_at: string;
   updated_at: string;
 };

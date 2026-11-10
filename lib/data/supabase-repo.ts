@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { PROMPT_CANVAS_MEDIA_BUCKET } from "@/lib/supabase/config";
-import { resolveBoardKind } from "@/lib/board-kind";
+import { resolveBoardKind, sortBoards } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import type {
   Asset,
@@ -128,7 +128,7 @@ export function createSupabaseRepo(): LibraryRepo {
           if (vErr) throw vErr;
           boards.push(video as Board);
         }
-        return boards;
+        return sortBoards(boards);
       }
       const { data: created, error: insertError } = await supabase
         .from("boards")
@@ -196,6 +196,15 @@ export function createSupabaseRepo(): LibraryRepo {
         .single();
       if (error) throw error;
       return data as Board;
+    },
+    async reorderBoards(orderedIds) {
+      const results = await Promise.all(
+        orderedIds.map((id, position) =>
+          supabase.from("boards").update({ position }).eq("id", id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
     },
     async listAssets(boardId) {
       let q = supabase.from("assets").select("*").is("deleted_at", null);

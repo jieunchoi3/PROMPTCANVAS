@@ -35,6 +35,15 @@ export function isVideoBoard(board: Board | undefined): boolean {
   return resolveBoardKind(board) === "video";
 }
 
+export function sortBoards(boards: Board[]): Board[] {
+  return [...boards].sort((a, b) => {
+    const pa = a.position ?? Number.MAX_SAFE_INTEGER;
+    const pb = b.position ?? Number.MAX_SAFE_INTEGER;
+    if (pa !== pb) return pa - pb;
+    return a.created_at.localeCompare(b.created_at);
+  });
+}
+
 export function inferBoardKindPatch(board: Board): Partial<Board> | null {
   const resolved = resolveBoardKind(board);
   if (board.kind === resolved) return null;

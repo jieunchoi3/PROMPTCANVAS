@@ -8,8 +8,8 @@ import { useCanvas } from "@/store/canvas-store";
 
 const SECTION_LABELS: Record<keyof ReverseAnalysis["sections"], string> = {
   subject: "피사체",
-  pose_composition: "구도·포즈",
-  camera_lens: "카메라·렌즈",
+  pose_composition: "인물 포즈",
+  camera_lens: "카메라 앵글/구도·렌즈",
   lighting: "조명",
   colour: "색감",
   style_texture: "스타일·질감",

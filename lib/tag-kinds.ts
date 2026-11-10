@@ -3,7 +3,7 @@ import type { Tag, TagKind } from "@/lib/types";
 export const TAG_KINDS: { key: TagKind; label: string }[] = [
   { key: "lighting", label: "조명" },
   { key: "colour", label: "색감" },
-  { key: "camera", label: "카메라 앵글" },
+  { key: "camera", label: "카메라 앵글/구도" },
   { key: "pose", label: "포즈" },
   { key: "style", label: "무드" },
   { key: "subject", label: "피사체" },
