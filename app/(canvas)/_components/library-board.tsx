@@ -12,6 +12,7 @@ import { useLibraryGridZoom, GRID_CELL_DEFAULT } from "@/hooks/use-library-grid-
 import { useAssetIngest } from "@/hooks/use-asset-ingest";
 import { AssetLightbox } from "@/components/asset-lightbox";
 import type { Asset } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import {
   filteredAssets,
   isPeopleBoard,
@@ -82,6 +83,7 @@ export function LibraryBoard() {
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
   const attrFilters = useCanvas((s) => s.attrFilters);
+  const expandedTopTabId = useCanvas((s) => s.expandedTopTabId);
   const currentBoard = boards.find((b) => b.id === boardId);
   const { cellSize, containerRef, containerEl, setCellSize } = useLibraryGridZoom();
   const containerWidth = useElementWidth(containerEl);
@@ -148,7 +150,7 @@ export function LibraryBoard() {
     visible,
     columnCount,
     (asset) => (asset.width > 0 && asset.height > 0 ? asset.height / asset.width : 1),
-    compact ? 0 : 0.45,
+    expandedTopTabId ? 0.15 : compact ? 0 : 0.45,
   );
 
   function onAssetClick(assetId: string, e: React.MouseEvent) {
@@ -196,6 +198,14 @@ export function LibraryBoard() {
               : [];
           })
           .map((tag) => tag.name);
+    const categoryKeywords = expandedTopTabId
+      ? assetTags
+          .filter((link) => link.asset_id === asset.id)
+          .flatMap((link) => {
+            const tag = tagById.get(link.tag_id);
+            return tag && tagMatchesTopTab(tag, expandedTopTabId) ? [tag.name] : [];
+          })
+      : null;
     return (
       <button
         key={asset.id}
@@ -204,6 +214,16 @@ export function LibraryBoard() {
         className="group overflow-hidden bg-zinc-900 text-left"
         style={on ? { boxShadow: "0 0 0 2px #D9B382" } : undefined}
       >
+        {categoryKeywords ? (
+          <div
+            className={cn(
+              "px-2 py-1.5 text-[12px] leading-snug",
+              categoryKeywords.length > 0 ? "text-zinc-100" : "text-zinc-600",
+            )}
+          >
+            {categoryKeywords.length > 0 ? categoryKeywords.join(" · ") : "—"}
+          </div>
+        ) : null}
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -223,7 +243,7 @@ export function LibraryBoard() {
             </span>
           ) : null}
         </div>
-        {!compact ? (
+        {!compact && !categoryKeywords ? (
           <div className="space-y-0.5 px-2 py-1.5">
             <div className="truncate text-[11px] text-zinc-400">
               {matchedKeywords.slice(0, 3).join(" · ") || asset.title || "—"}

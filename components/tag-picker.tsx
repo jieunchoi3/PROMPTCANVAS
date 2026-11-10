@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
-import { groupTags } from "@/lib/tag-kinds";
 import { mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { useCanvas } from "@/store/canvas-store";
 
 export function TagPicker({
@@ -19,33 +17,31 @@ export function TagPicker({
 }) {
   const tags = useCanvas((s) => s.tags);
   const customTopCategories = useCanvas((s) => s.customTopCategories);
-  const createTag = useCanvas((s) => s.createTag);
   const addTagToSelection = useCanvas((s) => s.addTagToSelection);
-  const selectedIds = useCanvas((s) => s.selectedIds);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const tabs = useMemo(() => mergeTopTabs(customTopCategories), [customTopCategories]);
-  const grouped = useMemo(() => groupTags(tags), [tags]);
-  const active = new Set(activeIds);
+  const activeTags = useMemo(() => {
+    const active = new Set(activeIds);
+    return tags.filter((tag) => active.has(tag.id));
+  }, [tags, activeIds]);
 
-  async function createAndAttach(tabId: string, kind: TagKind, categoryKey: string | null) {
-    const name = drafts[tabId]?.trim() ?? "";
-    if (!name) return;
-    const tag = await createTag(name, kind, categoryKey);
-    if (!tag) {
-      toast.error(S.tagExists);
-      return;
-    }
+  async function addDraft(tabId: string, kind: TagKind, categoryKey: string | null) {
+    const names = (drafts[tabId] ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (names.length === 0) return;
     setDrafts((current) => ({ ...current, [tabId]: "" }));
-    if (selectedIds.length > 0) await addTagToSelection(tag.name, kind, categoryKey);
+    for (const name of names) {
+      await addTagToSelection(name, kind, categoryKey);
+    }
   }
 
   return (
     <div className="space-y-3">
       {tabs.map((tab) => {
-        const items = tab.builtin
-          ? grouped.find((group) => group.kind === tab.id)?.items ?? []
-          : tags.filter((tag) => tagMatchesTopTab(tag, tab.id));
+        const items = activeTags.filter((tag) => tagMatchesTopTab(tag, tab.id));
         const draft = drafts[tab.id] ?? "";
         const kind = tab.builtin ? tab.id : "free";
         const categoryKey = tab.builtin ? null : tab.id;
@@ -56,24 +52,22 @@ export function TagPicker({
             </div>
             {items.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {items.map((tag) => {
-                  const on = active.has(tag.id);
-                  return (
+                {items.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex max-w-full items-start gap-1 rounded-xl bg-[#D9B382] py-1 pr-1 pl-2 text-[12px] leading-snug text-[#0B0B0D]"
+                  >
+                    <span className="min-w-0 break-words">{tag.name}</span>
                     <button
-                      key={tag.id}
                       type="button"
+                      aria-label={S.tagDelete}
                       onClick={() => onToggle(tag.id)}
-                      className={cn(
-                        "h-6 rounded-full px-2 text-[12px] transition-colors",
-                        on
-                          ? "bg-[#D9B382] text-[#0B0B0D]"
-                          : "bg-white/5 text-zinc-400 hover:bg-white/10",
-                      )}
+                      className="shrink-0 rounded-full p-0.5 hover:bg-black/10"
                     >
-                      {tag.name}
+                      <X className="size-3" />
                     </button>
-                  );
-                })}
+                  </span>
+                ))}
               </div>
             ) : null}
             <div className="flex gap-1.5">
@@ -85,11 +79,9 @@ export function TagPicker({
                     [tab.id]: e.target.value,
                   }))
                 }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && draft.trim()) {
-                    e.preventDefault();
-                    void createAndAttach(tab.id, kind, categoryKey);
-                  }
+                onKeyUp={(e) => {
+                  // Korean IME swallows the Enter keydown that commits composition; keyup still fires once.
+                  if (e.key === "Enter") void addDraft(tab.id, kind, categoryKey);
                 }}
                 placeholder={`${tab.label} 키워드`}
                 className="h-7 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[12px] outline-none focus:border-[#D9B382]/60"
@@ -98,7 +90,7 @@ export function TagPicker({
                 size="xs"
                 className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
                 disabled={!draft.trim()}
-                onClick={() => void createAndAttach(tab.id, kind, categoryKey)}
+                onClick={() => void addDraft(tab.id, kind, categoryKey)}
               >
                 {S.tagCreate}
               </Button>

@@ -82,7 +82,8 @@ export function TagTopFilters({
   const tags = useCanvas((s) => s.tags);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const toggleFilterTag = useCanvas((s) => s.toggleFilterTag);
-  const [expandedTabId, setExpandedTabId] = useState<string | null>(null);
+  const expandedTabId = useCanvas((s) => s.expandedTopTabId);
+  const setExpandedTabId = useCanvas((s) => s.setExpandedTopTabId);
   const tabs = mergeTopTabs(customTopCategories);
   const expanded = tabs.find((tab) => tab.id === expandedTabId) ?? null;
   const items = expanded

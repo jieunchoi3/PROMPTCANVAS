@@ -64,6 +64,7 @@ type CanvasState = {
   videoAutoplay: boolean;
   filterKinds: Tag["kind"][];
   filterCustomTabs: string[];
+  expandedTopTabId: string | null;
   customTopCategories: CustomTopCategory[];
   filterTagIds: string[];
   models: string[];
@@ -95,6 +96,7 @@ type CanvasState = {
   toggleVideoAutoplay: () => void;
   toggleFilterKind: (kind: Tag["kind"]) => void;
   toggleFilterCustomTab: (tabId: string) => void;
+  setExpandedTopTabId: (tabId: string | null) => void;
   addCustomTopCategory: (label: string) => Promise<void>;
   toggleFilterTag: (id: string) => void;
   clearFilters: () => void;
@@ -226,6 +228,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
   videoAutoplay: true,
   filterKinds: [],
   filterCustomTabs: [],
+  expandedTopTabId: null,
   customTopCategories: [],
   filterTagIds: [],
   models: [],
@@ -316,6 +319,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       camera: readCamera(id),
       filterKinds: [],
       filterCustomTabs: [],
+      expandedTopTabId: null,
       filterTagIds: [],
       filterSheetTypes: [],
       attrFilters: {},
@@ -369,10 +373,12 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       filterTagIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
     });
   },
+  setExpandedTopTabId: (expandedTopTabId) => set({ expandedTopTabId }),
   clearFilters: () =>
     set({
       filterKinds: [],
       filterCustomTabs: [],
+      expandedTopTabId: null,
       filterTagIds: [],
       filterSheetTypes: [],
     }),
