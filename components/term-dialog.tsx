@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
 import { groupTags } from "@/lib/tag-kinds";
-import { mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
+import { customCategoryId, mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCanvas } from "@/store/canvas-store";
@@ -99,19 +99,42 @@ export function TermDialog() {
     );
   }
 
-  function addDraft() {
-    const name = draft.trim();
-    if (!name || !activeTab) return;
-    const keyword: PickedKeyword = {
-      name,
-      kind: activeTab.builtin ? activeTab.id : "free",
-      categoryKey: activeTab.builtin ? null : activeTab.id,
-      tabLabel: activeTab.label,
-    };
-    if (!picked.some((k) => keywordKey(k) === keywordKey(keyword))) {
-      setPicked((current) => [...current, keyword]);
-    }
+  async function addDraft() {
+    if (!activeTab) return;
+    const names = draft
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (names.length === 0) return;
     setDraft("");
+    const kind: TagKind = activeTab.builtin ? activeTab.id : "free";
+    const categoryKey = activeTab.builtin ? null : activeTab.id;
+    const { createTag } = useCanvas.getState();
+    const added: PickedKeyword[] = [];
+    for (const name of names) {
+      const tag = await createTag(name, kind, categoryKey);
+      if (!tag) {
+        toast.error(S.termKeywordFailed(name));
+        continue;
+      }
+      added.push({
+        name: tag.name,
+        kind: tag.kind,
+        categoryKey: tag.category_key ?? null,
+        tabLabel: activeTab.label,
+      });
+    }
+    setPicked((current) => {
+      const keys = new Set(current.map(keywordKey));
+      return [...current, ...added.filter((k) => !keys.has(keywordKey(k)))];
+    });
+  }
+
+  async function addCategory() {
+    const label = window.prompt(S.addCustomTabPh)?.trim();
+    if (!label) return;
+    await useCanvas.getState().addCustomTopCategory(label);
+    setActiveTabId(customCategoryId(label));
   }
 
   async function save() {
@@ -247,6 +270,15 @@ export function TermDialog() {
                     {tab.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  aria-label={S.addCustomTab}
+                  title={S.addCustomTab}
+                  onClick={() => void addCategory()}
+                  className="inline-flex size-6 items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                >
+                  <Plus className="size-3.5" />
+                </button>
               </div>
               {activeTab ? (
                 <>
@@ -254,11 +286,9 @@ export function TermDialog() {
                     <input
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                          e.preventDefault();
-                          addDraft();
-                        }
+                      onKeyUp={(e) => {
+                        // Korean IME swallows the Enter keydown that commits composition; keyup still fires once.
+                        if (e.key === "Enter") void addDraft();
                       }}
                       placeholder={S.termKeywordPh(activeTab.label)}
                       className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[13px] outline-none focus:border-[#D9B382]/60"
@@ -267,7 +297,7 @@ export function TermDialog() {
                       size="sm"
                       className="h-8 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
                       disabled={!draft.trim()}
-                      onClick={addDraft}
+                      onClick={() => void addDraft()}
                     >
                       {S.tagCreate}
                     </Button>

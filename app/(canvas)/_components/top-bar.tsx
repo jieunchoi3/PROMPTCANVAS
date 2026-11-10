@@ -21,7 +21,6 @@ import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { AttrTopFilters, TagTopFilters } from "@/components/top-hierarchical-filters";
-import { TagManager } from "@/components/tag-manager";
 import { hasAttrFilters } from "@/lib/attributes";
 import {
   isPeopleBoard,
@@ -230,7 +229,6 @@ export function TopBar() {
               >
                 <Plus className="size-3.5" />
               </button>
-              <TagManager>{S.tagManage}</TagManager>
             </div>
           ) : null}
         </div>
