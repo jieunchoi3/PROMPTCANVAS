@@ -15,6 +15,7 @@ export function BulkAttrPanel({ board }: { board: Board | undefined }) {
   const selectedIds = useCanvas((s) => s.selectedIds);
   const assets = useCanvas((s) => s.assets);
   const applyAttrToSelection = useCanvas((s) => s.applyAttrToSelection);
+  const canEdit = useCanvas((s) => s.canEdit);
   const peopleBoard = isPeopleBoard(board);
   const wardrobeBoard = isWardrobeBoard(board);
   const videoBoard = isVideoBoard(board);
@@ -42,7 +43,7 @@ export function BulkAttrPanel({ board }: { board: Board | undefined }) {
     return result;
   }, [assets, defs, selectedIds]);
 
-  if (defs.length === 0 || selectedIds.length < 2) return null;
+  if (!canEdit || defs.length === 0 || selectedIds.length < 2) return null;
 
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-white/10 bg-[#111113] px-3 py-3 text-[13px]">

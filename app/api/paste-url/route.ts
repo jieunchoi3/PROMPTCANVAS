@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { MAX_FILE_BYTES } from "@/lib/constants";
 import { S } from "@/lib/strings";
+import { requireOwner } from "@/lib/supabase/require-owner";
 import { z } from "zod";
 
 const Body = z.object({
@@ -8,6 +9,9 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
+  const denied = await requireOwner();
+  if (denied) return denied;
+
   let json: unknown;
   try {
     json = await request.json();

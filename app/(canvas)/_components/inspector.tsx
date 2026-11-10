@@ -37,6 +37,7 @@ export function Inspector() {
   const analyzeAsset = useCanvas((s) => s.analyzeAsset);
   const analyzeWardrobeAsset = useCanvas((s) => s.analyzeWardrobeAsset);
   const analyzeCharacterAsset = useCanvas((s) => s.analyzeCharacterAsset);
+  const canEdit = useCanvas((s) => s.canEdit);
   const [copied, setCopied] = useState(false);
 
   const asset = selectedIds.length === 1 ? assets.find((a) => a.id === selectedIds[0]) : undefined;
@@ -89,6 +90,7 @@ export function Inspector() {
       </div>
       <Textarea
         value={asset.prompt}
+        readOnly={!canEdit}
         onChange={(e) => updateFields(asset.id, { prompt: e.target.value })}
         className="min-h-28 resize-y border-white/10 bg-black/40 text-[13px] leading-relaxed"
       />
@@ -112,11 +114,12 @@ export function Inspector() {
       </div>
       <input
         value={asset.model}
-        placeholder={S.modelPlaceholder}
+        readOnly={!canEdit}
+        placeholder={canEdit ? S.modelPlaceholder : "—"}
         onChange={(e) => updateFields(asset.id, { model: e.target.value })}
         className="h-8 w-full rounded-md border border-white/10 bg-black/40 px-2 text-[13px] outline-none focus:border-[#D9B382]/60"
       />
-      {models.length > 0 ? (
+      {canEdit && models.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {models.slice(0, 6).map((model) => (
             <button
@@ -137,7 +140,7 @@ export function Inspector() {
             <div className="text-[11px] uppercase tracking-wide text-zinc-500">
               {attrSectionLabel}
             </div>
-            {peopleBoard && asset.kind === "image" ? (
+            {canEdit && peopleBoard && asset.kind === "image" ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -158,11 +161,13 @@ export function Inspector() {
               </Button>
             ) : null}
           </div>
-          <AttributeFilters
-            defs={attrDefs}
-            values={attrMapToFilterValues(asset.attributes, attrDefs)}
-            onToggle={(key, value) => toggleAssetAttr(asset.id, key, value)}
-          />
+          {canEdit ? (
+            <AttributeFilters
+              defs={attrDefs}
+              values={attrMapToFilterValues(asset.attributes, attrDefs)}
+              onToggle={(key, value) => toggleAssetAttr(asset.id, key, value)}
+            />
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-1">
             {Object.entries(asset.attributes).flatMap(([key, raw]) =>
               (Array.isArray(raw) ? raw : [raw]).map((value) => (
@@ -181,18 +186,22 @@ export function Inspector() {
           <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
             {S.inspectorTags}
           </div>
-          <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
-            {S.inspectorTagsHint}
-          </p>
+          {canEdit ? (
+            <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
+              {S.inspectorTagsHint}
+            </p>
+          ) : null}
           <TagPicker
             activeIds={linkedIds}
             onToggle={(id) => void toggleTagOnSelection(id)}
           />
 
-          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-            {S.inspectorReverse}
-          </div>
-          {asset.kind === "image" ? (
+          {canEdit ? (
+            <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
+              {S.inspectorReverse}
+            </div>
+          ) : null}
+          {!canEdit ? null : asset.kind === "image" ? (
             <ReverseAnalysisPanel
               assetId={asset.id}
               analysis={analyses[asset.id] ?? null}
@@ -212,7 +221,7 @@ export function Inspector() {
         </>
       )}
 
-      {peopleBoard ? (
+      {canEdit && peopleBoard ? (
         <Button
           variant="outline"
           size="sm"
@@ -223,7 +232,7 @@ export function Inspector() {
         </Button>
       ) : null}
 
-      {wardrobeBoard ? (
+      {canEdit && wardrobeBoard ? (
         <Button
           variant="outline"
           size="sm"
@@ -239,24 +248,26 @@ export function Inspector() {
         </Button>
       ) : null}
 
-      <Popover open={boardMoveOpen} onOpenChange={setBoardMoveOpen}>
-        <PopoverTrigger className="mt-4 inline-flex h-7 w-full items-center justify-center rounded-md border border-white/10 bg-white/5 text-[12px] text-zinc-200 hover:bg-white/10">
-          {S.bulkMove}
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-2" align="end" side="top">
-          <BoardMovePicker
-            onPick={(targetBoardId) => {
-              setBoardMoveOpen(false);
-              void moveSelectionToBoard(targetBoardId);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+      {canEdit ? (
+        <Popover open={boardMoveOpen} onOpenChange={setBoardMoveOpen}>
+          <PopoverTrigger className="mt-4 inline-flex h-7 w-full items-center justify-center rounded-md border border-white/10 bg-white/5 text-[12px] text-zinc-200 hover:bg-white/10">
+            {S.bulkMove}
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="end" side="top">
+            <BoardMovePicker
+              onPick={(targetBoardId) => {
+                setBoardMoveOpen(false);
+                void moveSelectionToBoard(targetBoardId);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      ) : null}
 
       <Button
         variant="outline"
         size="sm"
-        className="mt-2 h-7 w-full"
+        className={canEdit ? "mt-2 h-7 w-full" : "mt-4 h-7 w-full"}
         onClick={() => {
           void downloadAsset(asset)
             .then(() => toast.success(S.downloaded(1)))

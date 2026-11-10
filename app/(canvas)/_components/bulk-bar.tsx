@@ -19,6 +19,7 @@ export function BulkBar() {
   const deleteSelection = useCanvas((s) => s.deleteSelection);
   const moveSelectionToBoard = useCanvas((s) => s.moveSelectionToBoard);
   const toggleTagOnSelection = useCanvas((s) => s.toggleTagOnSelection);
+  const canEdit = useCanvas((s) => s.canEdit);
   const [tagOpen, setTagOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const currentBoard = boards.find((b) => b.id === boardId);
@@ -27,7 +28,7 @@ export function BulkBar() {
     !isWardrobeBoard(currentBoard) &&
     !isVideoBoard(currentBoard);
 
-  if (selectedIds.length === 0) return null;
+  if (!canEdit || selectedIds.length === 0) return null;
 
   const shared = assetTags
     .filter((at) => selectedIds.includes(at.asset_id))

@@ -20,6 +20,7 @@ import { ACCEPT_ATTR } from "@/lib/constants";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
+import { AccountButton } from "@/components/account-button";
 import { AttrTopFilters, TagTopFilters } from "@/components/top-hierarchical-filters";
 import { hasAttrFilters } from "@/lib/attributes";
 import {
@@ -76,7 +77,7 @@ export function TopBar() {
   const addCustomTopCategory = useCanvas((s) => s.addCustomTopCategory);
   const filterSheetTypes = useCanvas((s) => s.filterSheetTypes);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
-  const mode = useCanvas((s) => s.mode);
+  const canEdit = useCanvas((s) => s.canEdit);
   const attrFilters = useCanvas((s) => s.attrFilters);
   const createPromptSheet = useCanvas((s) => s.createPromptSheet);
   const current = boards.find((b) => b.id === boardId);
@@ -117,6 +118,7 @@ export function TopBar() {
                 <span className="min-w-0 flex-1 truncate">
                   {b.emoji} {b.name}
                 </span>
+                {canEdit ? (
                 <span className="ml-3 flex shrink-0 items-center gap-0.5 opacity-0 group-hover/board:opacity-100 group-focus/board:opacity-100">
                   <BoardMoveButton
                     label={S.boardMoveUp}
@@ -133,17 +135,22 @@ export function TopBar() {
                     <ChevronDown className="size-3.5" />
                   </BoardMoveButton>
                 </span>
+                ) : null}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                const name = window.prompt(S.boardName, S.defaultBoard);
-                if (name) void useCanvas.getState().createBoard(name, "✦");
-              }}
-            >
-              {S.newBoard}
-            </DropdownMenuItem>
+            {canEdit ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    const name = window.prompt(S.boardName, S.defaultBoard);
+                    if (name) void useCanvas.getState().createBoard(name, "✦");
+                  }}
+                >
+                  {S.newBoard}
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -195,9 +202,7 @@ export function TopBar() {
           </button>
         ) : null}
 
-        <span className="hidden text-[11px] text-zinc-600 sm:inline">
-          {mode === "local" ? S.localMode : S.cloudMode}
-        </span>
+        <AccountButton />
 
         <Link
           href={pathname === "/" || pathname === "/library" ? "/canvas" : "/"}
@@ -212,7 +217,7 @@ export function TopBar() {
           <LayoutGrid className="size-4" />
         </Link>
 
-        {promptsBoard ? (
+        {!canEdit ? null : promptsBoard ? (
           <Button
             size="sm"
             className="h-7 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
@@ -269,7 +274,7 @@ export function TopBar() {
               <TagTopFilters customTopCategories={customTopCategories} />
             )}
           </div>
-          {!attrCategoryDefs ? (
+          {!attrCategoryDefs && canEdit ? (
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"

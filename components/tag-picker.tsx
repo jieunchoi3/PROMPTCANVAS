@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { S } from "@/lib/strings";
+import { cn } from "@/lib/utils";
 import { mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
 import { useCanvas } from "@/store/canvas-store";
@@ -18,6 +19,7 @@ export function TagPicker({
   const tags = useCanvas((s) => s.tags);
   const customTopCategories = useCanvas((s) => s.customTopCategories);
   const addTagToSelection = useCanvas((s) => s.addTagToSelection);
+  const canEdit = useCanvas((s) => s.canEdit);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const tabs = useMemo(() => mergeTopTabs(customTopCategories), [customTopCategories]);
@@ -38,10 +40,15 @@ export function TagPicker({
     }
   }
 
+  if (!canEdit && activeTags.length === 0) {
+    return <p className="text-[12px] text-zinc-600">—</p>;
+  }
+
   return (
     <div className="space-y-3">
       {tabs.map((tab) => {
         const items = activeTags.filter((tag) => tagMatchesTopTab(tag, tab.id));
+        if (!canEdit && items.length === 0) return null;
         const draft = drafts[tab.id] ?? "";
         const kind = tab.builtin ? tab.id : "free";
         const categoryKey = tab.builtin ? null : tab.id;
@@ -55,21 +62,27 @@ export function TagPicker({
                 {items.map((tag) => (
                   <span
                     key={tag.id}
-                    className="inline-flex max-w-full items-start gap-1 rounded-xl bg-[#D9B382] py-1 pr-1 pl-2 text-[12px] leading-snug text-[#0B0B0D]"
+                    className={cn(
+                      "inline-flex max-w-full items-start gap-1 rounded-xl bg-[#D9B382] py-1 pl-2 text-[12px] leading-snug text-[#0B0B0D]",
+                      canEdit ? "pr-1" : "pr-2",
+                    )}
                   >
                     <span className="min-w-0 break-words">{tag.name}</span>
-                    <button
-                      type="button"
-                      aria-label={S.tagDelete}
-                      onClick={() => onToggle(tag.id)}
-                      className="shrink-0 rounded-full p-0.5 hover:bg-black/10"
-                    >
-                      <X className="size-3" />
-                    </button>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        aria-label={S.tagDelete}
+                        onClick={() => onToggle(tag.id)}
+                        className="shrink-0 rounded-full p-0.5 hover:bg-black/10"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    ) : null}
                   </span>
                 ))}
               </div>
             ) : null}
+            {canEdit ? (
             <div className="flex gap-1.5">
               <input
                 value={draft}
@@ -95,6 +108,7 @@ export function TagPicker({
                 {S.tagCreate}
               </Button>
             </div>
+            ) : null}
           </div>
         );
       })}

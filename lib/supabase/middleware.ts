@@ -28,14 +28,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/login") || path.startsWith("/auth");
   const claims = data?.claims;
 
-  if (!claims && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
   if (claims && path.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/";

@@ -97,6 +97,7 @@ export async function ingestFiles(
   files: File[],
   dropAt: { clientX: number; clientY: number } | "center",
 ): Promise<Asset[]> {
+  if (!useCanvas.getState().canEdit) return [];
   const boardId = useCanvas.getState().boardId;
   if (!boardId || files.length === 0) return [];
   const created: Asset[] = [];

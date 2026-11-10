@@ -15,6 +15,7 @@ export function PromptsBoard() {
   const selectedPromptId = useCanvas((s) => s.selectedPromptId);
   const selectPrompt = useCanvas((s) => s.selectPrompt);
   const deletePromptSheet = useCanvas((s) => s.deletePromptSheet);
+  const canEdit = useCanvas((s) => s.canEdit);
 
   const visible = filteredPromptSheets({
     ...useCanvas.getState(),
@@ -98,19 +99,21 @@ export function PromptsBoard() {
                         <Copy className="size-3" />
                         {S.copy}
                       </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="h-6 text-red-400 hover:text-red-300"
-                        onClick={() => {
-                          if (window.confirm(S.deletePromptConfirm)) {
-                            void deletePromptSheet(prompt.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="size-3" />
-                        {S.deletePrompt}
-                      </Button>
+                      {canEdit ? (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-6 text-red-400 hover:text-red-300"
+                          onClick={() => {
+                            if (window.confirm(S.deletePromptConfirm)) {
+                              void deletePromptSheet(prompt.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                          {S.deletePrompt}
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 );

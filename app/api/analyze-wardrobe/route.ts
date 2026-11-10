@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { callGeminiJson } from "@/lib/gemini";
+import { requireOwner } from "@/lib/supabase/require-owner";
 import { wardrobeAnalysisSchema } from "@/lib/wardrobe-analysis-schema";
 
 const requestSchema = z.object({
@@ -24,6 +25,9 @@ Return strict JSON only:
 Use English slugs for arrays. summary_ko and keywords[].why in Korean.`;
 
 export async function POST(request: Request) {
+  const denied = await requireOwner();
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

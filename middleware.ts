@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { isCloudEnabled } from "@/lib/env";
+import { updateSession } from "@/lib/supabase/middleware";
 
-export function middleware(_request: NextRequest) {
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  if (!isCloudEnabled()) return NextResponse.next();
+  return updateSession(request);
 }
 
 export const config = {

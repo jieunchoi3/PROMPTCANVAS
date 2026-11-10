@@ -15,7 +15,7 @@ import type {
   TagKind,
 } from "@/lib/types";
 import type { LibraryRepo } from "@/lib/data/repo";
-import { extOf, sharedUserId } from "@/lib/env";
+import { extOf, libraryOwnerId } from "@/lib/env";
 import { makeImageThumb } from "@/lib/thumbnail";
 
 type AssetRow = Omit<Asset, "url" | "thumbUrl">;
@@ -53,12 +53,16 @@ export function createSupabaseRepo(): LibraryRepo {
   const supabase = createClient();
 
   async function workspaceUserId(): Promise<string> {
-    return sharedUserId();
+    return libraryOwnerId();
   }
 
   return {
     mode: "cloud",
     getUserId: workspaceUserId,
+    async canEdit() {
+      const { data } = await supabase.auth.getUser();
+      return data.user?.id === libraryOwnerId();
+    },
     async listBoards() {
       const user_id = await workspaceUserId();
       const { data, error } = await supabase

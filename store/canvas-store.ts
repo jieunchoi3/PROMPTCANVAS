@@ -53,6 +53,7 @@ type CanvasState = {
   ready: boolean;
   loadError: string | null;
   mode: "local" | "cloud";
+  canEdit: boolean;
   boards: Board[];
   boardId: string | null;
   assets: Asset[];
@@ -214,10 +215,57 @@ function rememberBoard(boardId: string): void {
   }
 }
 
-export const useCanvas = create<CanvasState>((set, get) => ({
+const EDIT_ACTIONS = [
+  "createBoard",
+  "moveBoard",
+  "addCustomTopCategory",
+  "moveAssets",
+  "resizeAsset",
+  "updateFields",
+  "addTagToSelection",
+  "toggleTagOnSelection",
+  "createTag",
+  "renameTag",
+  "setTagKind",
+  "deleteTag",
+  "removeTag",
+  "deleteSelection",
+  "moveSelectionToBoard",
+  "undo",
+  "redo",
+  "addAssets",
+  "toggleAssetAttr",
+  "applyAttrToSelection",
+  "setCharacterDialogOpen",
+  "setTermDialogOpen",
+  "saveCharacter",
+  "deleteCharacter",
+  "createPromptSheet",
+  "updatePromptSheet",
+  "deletePromptSheet",
+  "uploadPromptPreview",
+  "analyzeAsset",
+  "analyzeWardrobeAsset",
+  "analyzeCharacterAsset",
+  "applyAnalysis",
+] as const satisfies readonly (keyof CanvasState)[];
+
+/** Visitors get a read-only library: edit actions become no-ops (the database rejects writes anyway). */
+function guardEdits(state: CanvasState, canEdit: () => boolean): CanvasState {
+  const guarded: Record<string, unknown> = { ...state };
+  for (const key of EDIT_ACTIONS) {
+    const action = state[key] as (...args: unknown[]) => unknown;
+    guarded[key] = (...args: unknown[]) =>
+      canEdit() ? action(...args) : Promise.resolve(undefined);
+  }
+  return guarded as CanvasState;
+}
+
+export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   ready: false,
   loadError: null,
   mode: "local",
+  canEdit: false,
   boards: [],
   boardId: null,
   assets: [],
@@ -256,14 +304,17 @@ export const useCanvas = create<CanvasState>((set, get) => ({
     set({ loadError: null });
     try {
       const repo = getRepo();
+      const canEdit = await repo.canEdit();
       const boards = await repo.listBoards();
       const boardId = initialBoardId(boards);
       if (!boardId) {
-        set({ ready: true, mode: repo.mode, boards, loadError: null });
+        set({ ready: true, mode: repo.mode, canEdit, boards, loadError: null });
         return;
       }
-      await clearSeedAssets(repo);
-      await ensureStarterTags(repo);
+      if (canEdit) {
+        await clearSeedAssets(repo);
+        await ensureStarterTags(repo);
+      }
       const [assets, tags, assetTags, models, characters, characterAssets, promptSheets, customTopCategories] =
         await Promise.all([
           repo.listAssets(boardId),
@@ -278,6 +329,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       set({
         ready: true,
         mode: repo.mode,
+        canEdit,
         boards,
         boardId,
         assets,
@@ -976,7 +1028,7 @@ export const useCanvas = create<CanvasState>((set, get) => ({
       }
     }
   },
-}));
+}, () => get().canEdit));
 
 type SetFn = (partial: Partial<CanvasState> | ((s: CanvasState) => Partial<CanvasState>)) => void;
 type GetFn = () => CanvasState;

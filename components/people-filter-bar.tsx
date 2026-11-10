@@ -14,6 +14,7 @@ export function PeopleFilterBar() {
   const characters = useCanvas((s) => s.characters);
   const selectCharacter = useCanvas((s) => s.selectCharacter);
   const deleteCharacter = useCanvas((s) => s.deleteCharacter);
+  const canEdit = useCanvas((s) => s.canEdit);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto border-r border-white/10 bg-[#0D0D0F] px-3 py-3 text-[12px]" style={{ maxWidth: 220 }}>
@@ -79,13 +80,15 @@ export function PeopleFilterBar() {
                     .join(" ")}
                 </span>
               </button>
-              <button
-                type="button"
-                className="hidden size-5 text-zinc-500 hover:text-red-400 group-hover:block"
-                onClick={() => void deleteCharacter(c.id)}
-              >
-                <Trash2 className="mx-auto size-3" />
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="hidden size-5 text-zinc-500 hover:text-red-400 group-hover:block"
+                  onClick={() => void deleteCharacter(c.id)}
+                >
+                  <Trash2 className="mx-auto size-3" />
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

@@ -205,6 +205,9 @@ export function createLocalRepo(): LibraryRepo {
     async getUserId() {
       return localUserId();
     },
+    async canEdit() {
+      return true;
+    },
     async listBoards() {
       const db = await openDb();
       const rows = (

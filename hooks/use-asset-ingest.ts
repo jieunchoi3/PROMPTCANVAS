@@ -28,6 +28,7 @@ export function useAssetIngest(containerSource?: ContainerSource) {
   useEffect(() => {
     async function onPaste(e: ClipboardEvent) {
       if (isTypingTarget(e.target)) return;
+      if (!useCanvas.getState().canEdit) return;
       if (useCanvas.getState().termDialogOpen) return;
       const items = e.clipboardData;
       if (!items) return;
@@ -74,7 +75,7 @@ export function useAssetIngest(containerSource?: ContainerSource) {
 
   function onDragOver(e: React.DragEvent) {
     e.preventDefault();
-    setDragging(true);
+    if (useCanvas.getState().canEdit) setDragging(true);
   }
 
   function onDragLeave() {

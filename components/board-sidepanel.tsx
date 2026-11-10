@@ -19,6 +19,7 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
   const characterAssets = useCanvas((s) => s.characterAssets);
   const selectCharacter = useCanvas((s) => s.selectCharacter);
   const deleteCharacter = useCanvas((s) => s.deleteCharacter);
+  const canEdit = useCanvas((s) => s.canEdit);
   const kind = resolveBoardKind(board);
   const defs =
     kind === "characters"
@@ -84,7 +85,7 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
                   character={character}
                   count={characterAssets.filter((x) => x.character_id === character.id).length}
                   onSelect={() => selectCharacter(character.id)}
-                  onDelete={() => void deleteCharacter(character.id)}
+                  onDelete={canEdit ? () => void deleteCharacter(character.id) : undefined}
                 />
               ))
             )}
@@ -104,7 +105,7 @@ function CharacterRow({
   character: Character;
   count: number;
   onSelect: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <div className="rounded-md border border-white/10 bg-black/20 p-2">
@@ -115,9 +116,11 @@ function CharacterRow({
         </div>
         <div className="mt-1 text-[11px] text-zinc-600">{count} refs</div>
       </button>
-      <Button variant="ghost" size="xs" className="mt-1" onClick={onDelete}>
-        {S.deleteCharacter}
-      </Button>
+      {onDelete ? (
+        <Button variant="ghost" size="xs" className="mt-1" onClick={onDelete}>
+          {S.deleteCharacter}
+        </Button>
+      ) : null}
     </div>
   );
 }

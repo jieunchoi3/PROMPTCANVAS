@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,22 +23,17 @@ export default function LoginPage() {
 
   if (!isCloudEnabled()) return null;
 
-  async function submit(mode: "in" | "up") {
+  async function submit() {
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    const fn =
-      mode === "in"
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
-    const { error: authError } = await fn;
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (authError) {
-      setError(mode === "in" ? S.loginError : S.signupError);
+      setError(S.loginError);
       return;
     }
-    router.replace("/");
-    router.refresh();
+    window.location.assign("/");
   }
 
   return (
@@ -46,7 +42,7 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          void submit("in");
+          void submit();
         }}
       >
         <div>
@@ -84,15 +80,9 @@ export default function LoginPage() {
         >
           {S.signIn}
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full"
-          disabled={busy}
-          onClick={() => void submit("up")}
-        >
-          {S.signUp}
-        </Button>
+        <Link href="/" className="block text-center text-xs text-zinc-500 hover:text-zinc-300">
+          {S.backToLibrary}
+        </Link>
       </form>
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { callGeminiJson } from "@/lib/gemini";
+import { requireOwner } from "@/lib/supabase/require-owner";
 import {
   REVERSE_ANALYSIS_PROMPT,
   filterValidKeywords,
@@ -14,6 +15,9 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const denied = await requireOwner();
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

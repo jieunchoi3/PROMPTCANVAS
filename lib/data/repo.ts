@@ -14,6 +14,7 @@ import type {
 export type LibraryRepo = {
   mode: "local" | "cloud";
   getUserId(): Promise<string>;
+  canEdit(): Promise<boolean>;
   listBoards(): Promise<Board[]>;
   createBoard(name: string, emoji: string, kind?: BoardKind): Promise<Board>;
   reorderBoards(orderedIds: string[]): Promise<void>;

@@ -16,6 +16,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
   const updatePromptSheet = useCanvas((s) => s.updatePromptSheet);
   const uploadPromptPreview = useCanvas((s) => s.uploadPromptPreview);
   const models = useCanvas((s) => s.models);
+  const canEdit = useCanvas((s) => s.canEdit);
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -61,7 +62,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-white/10 bg-[#111113]">
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <fieldset disabled={!canEdit} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3">
         <div className="mb-3 text-sm text-zinc-200">{S.promptsBoard}</div>
 
         <div className="mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
@@ -122,15 +123,19 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
                 alt=""
                 className="aspect-video w-full object-cover"
               />
-              <button
-                type="button"
-                className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-white"
-                aria-label={S.promptPreviewRemove}
-                onClick={() => void uploadPromptPreview(promptId, null)}
-              >
-                <X className="size-3.5" />
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-zinc-300 hover:text-white"
+                  aria-label={S.promptPreviewRemove}
+                  onClick={() => void uploadPromptPreview(promptId, null)}
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
             </div>
+          ) : !canEdit ? (
+            <p className="text-[12px] text-zinc-600">—</p>
           ) : (
             <button
               type="button"
@@ -203,7 +208,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
           placeholder={S.promptNotesPh}
           className="min-h-16 border-white/10 bg-black/20 text-[13px]"
         />
-      </div>
+      </fieldset>
 
       <div className="border-t border-white/10 p-3">
         <Button
