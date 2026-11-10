@@ -11,10 +11,25 @@ import type {
   TagKind,
 } from "@/lib/types";
 
+export type LibrarySnapshot = {
+  boards: Board[];
+  boardId: string | null;
+  assets: Asset[];
+  tags: Tag[];
+  assetTags: AssetTag[];
+  models: string[];
+  characters: Character[];
+  characterAssets: CharacterAsset[];
+  promptSheets: PromptSheet[];
+  customTopCategories: { id: string; label: string }[];
+};
+
 export type LibraryRepo = {
   mode: "local" | "cloud";
   getUserId(): Promise<string>;
   canEdit(): Promise<boolean>;
+  /** Boards plus everything needed to show `preferredBoardId` (or the default board). */
+  loadSnapshot(preferredBoardId: string | null): Promise<LibrarySnapshot>;
   listBoards(): Promise<Board[]>;
   createBoard(name: string, emoji: string, kind?: BoardKind): Promise<Board>;
   reorderBoards(orderedIds: string[]): Promise<void>;

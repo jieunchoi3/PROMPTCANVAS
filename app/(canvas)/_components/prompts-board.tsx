@@ -45,14 +45,14 @@ export function PromptsBoard() {
               {filterSheetTypes.length > 0 ? S.tagFilterEmpty : S.noPrompts}
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2">
+            <div className="columns-[280px] gap-2">
               {visible.map((prompt) => {
                 const on = selectedPromptId === prompt.id;
                 return (
                   <div
                     key={prompt.id}
                     className={cn(
-                      "rounded-md border border-white/10 bg-[#111113] p-3 text-left transition-colors",
+                      "mb-2 break-inside-avoid rounded-md border border-white/10 bg-[#111113] p-3 text-left transition-colors",
                       on ? "ring-2 ring-[#D9B382]" : "hover:border-white/20",
                     )}
                   >
@@ -67,7 +67,8 @@ export function PromptsBoard() {
                           <img
                             src={prompt.previewUrl}
                             alt=""
-                            className="aspect-video w-full object-cover"
+                            loading="lazy"
+                            className="block h-auto w-full"
                           />
                         </div>
                       ) : null}

@@ -14,11 +14,27 @@ import type {
   Tag,
   TagKind,
 } from "@/lib/types";
+import { composeSnapshot } from "@/lib/data/compose-snapshot";
 import type { LibraryRepo } from "@/lib/data/repo";
 import { extOf, libraryOwnerId } from "@/lib/env";
 import { makeImageThumb } from "@/lib/thumbnail";
 
 type AssetRow = Omit<Asset, "url" | "thumbUrl">;
+
+type SnapshotRow = {
+  board_id: string | null;
+  boards: Board[];
+  assets: AssetRow[];
+  tags: Tag[];
+  asset_tags: AssetTag[];
+  models: string[];
+  characters: Character[];
+  character_assets: CharacterAsset[];
+  prompt_sheets: PromptSheet[];
+  custom_top_categories: { id: string; label: string }[] | null;
+};
+
+const BUILTIN_KINDS: BoardKind[] = ["characters", "wardrobe", "prompts", "video"];
 
 function publicUrl(
   supabase: ReturnType<typeof createClient>,
@@ -56,12 +72,40 @@ export function createSupabaseRepo(): LibraryRepo {
     return libraryOwnerId();
   }
 
-  return {
+  const repo: LibraryRepo = {
     mode: "cloud",
     getUserId: workspaceUserId,
     async canEdit() {
-      const { data } = await supabase.auth.getUser();
-      return data.user?.id === libraryOwnerId();
+      // Session is read locally; the database still rejects writes from anyone else.
+      const { data } = await supabase.auth.getSession();
+      return data.session?.user.id === libraryOwnerId();
+    },
+    async loadSnapshot(preferredBoardId) {
+      const { data, error } = await supabase.rpc("library_snapshot", {
+        p_owner: libraryOwnerId(),
+        p_board: preferredBoardId,
+      });
+      if (error) throw error;
+      const raw = data as SnapshotRow;
+      const boards = sortBoards(raw.boards.map((b) => ({ ...b, kind: resolveBoardKind(b) })));
+      const hasAllKinds = BUILTIN_KINDS.every((kind) => boards.some((b) => b.kind === kind));
+      if (!hasAllKinds) return composeSnapshot(repo, preferredBoardId);
+      return {
+        boards,
+        boardId: raw.board_id,
+        assets: raw.assets.map((row) => hydrate(supabase, row)),
+        tags: raw.tags.map((tag) => ({ ...tag, category_key: tag.category_key ?? null })),
+        assetTags: raw.asset_tags,
+        models: raw.models,
+        characters: raw.characters.map((c) => ({ ...c, attributes: c.attributes ?? {} })),
+        characterAssets: raw.character_assets,
+        promptSheets: raw.prompt_sheets.map((row) =>
+          hydratePromptSheet(supabase, { ...row, preview_path: row.preview_path ?? null }),
+        ),
+        customTopCategories: Array.isArray(raw.custom_top_categories)
+          ? raw.custom_top_categories
+          : [],
+      };
     },
     async listBoards() {
       const user_id = await workspaceUserId();
@@ -545,4 +589,5 @@ export function createSupabaseRepo(): LibraryRepo {
       if (error) throw error;
     },
   };
+  return repo;
 }

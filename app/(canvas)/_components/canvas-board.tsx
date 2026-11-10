@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { BoardSidepanel } from "@/components/board-sidepanel";
-import { BulkAttrPanel } from "@/components/bulk-attr-panel";
+import { RightPanel } from "@/components/right-panel";
 import { AssetLightbox } from "@/components/asset-lightbox";
 import { CULL_PAD } from "@/lib/constants";
 import {
@@ -19,7 +18,6 @@ import { AssetNode } from "./asset-node";
 import { BulkBar } from "./bulk-bar";
 import { CanvasViewport } from "./canvas-viewport";
 import { useCanvasGestures } from "./canvas-gestures";
-import { Inspector } from "./inspector";
 import { UndoToast } from "./undo-toast";
 import { UploadQueue } from "./upload-queue";
 
@@ -241,16 +239,7 @@ export function CanvasBoard() {
         <UploadQueue />
         <UndoToast />
       </div>
-      {selectedIds.length === 1 ? (
-        <Inspector />
-      ) : selectedIds.length > 1 &&
-        (isPeopleBoard(currentBoard) ||
-          isWardrobeBoard(currentBoard) ||
-          isVideoBoard(currentBoard)) ? (
-        <BulkAttrPanel board={currentBoard} />
-      ) : (
-        <BoardSidepanel board={currentBoard} />
-      )}
+      <RightPanel board={currentBoard} selectedCount={selectedIds.length} />
       <AssetLightbox asset={lightbox} />
     </div>
   );

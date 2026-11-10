@@ -4,13 +4,13 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { PERSIST_MS, UNDO_TOAST_MS } from "@/lib/constants";
 import { getRepo } from "@/lib/data/get-repo";
-import { clearSeedAssets, ensureStarterTags } from "@/lib/seed-local";
+import type { LibrarySnapshot } from "@/lib/data/repo";
+import { ensureStarterTags } from "@/lib/seed-local";
 import { fetchImageBase64 } from "@/lib/image-base64";
 import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import type { WardrobeAnalysisInput } from "@/lib/wardrobe-analysis-schema";
 import type { CharacterAnalysis } from "@/lib/character-analysis-schema";
 import { matchesAttributes, hasAttrFilters, toggleAttribute, applyAttribute, attrValues } from "@/lib/attributes";
-import { isPeopleBoard, isWardrobeBoard } from "@/lib/board-kind";
 import { S } from "@/lib/strings";
 import {
   customCategoryId,
@@ -80,6 +80,7 @@ type CanvasState = {
   attrFilters: Record<string, string[]>;
   characterDialogOpen: boolean;
   termDialogOpen: boolean;
+  panelCollapsed: boolean;
   promptSheets: PromptSheet[];
   selectedPromptId: string | null;
   filterSheetTypes: PromptSheetType[];
@@ -140,6 +141,7 @@ type CanvasState = {
   applyAttrToSelection: (key: string, value: string) => void;
   setCharacterDialogOpen: (open: boolean) => void;
   setTermDialogOpen: (open: boolean) => void;
+  setPanelCollapsed: (collapsed: boolean) => void;
   saveCharacter: (input: {
     name: string;
     attributes: AttributeMap;
@@ -197,14 +199,60 @@ function readCamera(boardId: string): Camera {
 
 const LAST_BOARD_KEY = "pc.lastBoard";
 
-function initialBoardId(boards: Board[]): string | null {
+function lastBoardId(): string | null {
   try {
-    const last = localStorage.getItem(LAST_BOARD_KEY);
-    if (last && boards.some((b) => b.id === last)) return last;
+    return localStorage.getItem(LAST_BOARD_KEY);
   } catch {
-    /* ignore */
+    return null;
   }
-  return (boards.find((b) => isPeopleBoard(b)) ?? boards[0])?.id ?? null;
+}
+
+const PANEL_COLLAPSED_KEY = "pc.panelCollapsed";
+
+function readPanelCollapsed(): boolean {
+  try {
+    return localStorage.getItem(PANEL_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const SNAPSHOT_KEY = "pc.snapshot.v1";
+
+/** Last loaded library, shown instantly on the next visit while fresh data loads. */
+function readSnapshotCache(): LibrarySnapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    const snapshot = JSON.parse(raw) as LibrarySnapshot;
+    return Array.isArray(snapshot.boards) && Array.isArray(snapshot.assets) ? snapshot : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSnapshotCache(mode: "local" | "cloud", snapshot: LibrarySnapshot): void {
+  if (mode !== "cloud") return;
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* quota exceeded: skip caching */
+  }
+}
+
+function snapshotFields(snapshot: LibrarySnapshot) {
+  return {
+    boards: snapshot.boards,
+    boardId: snapshot.boardId,
+    assets: snapshot.assets,
+    tags: snapshot.tags,
+    assetTags: snapshot.assetTags,
+    models: snapshot.models,
+    characters: snapshot.characters,
+    characterAssets: snapshot.characterAssets,
+    promptSheets: snapshot.promptSheets,
+    customTopCategories: snapshot.customTopCategories,
+  };
 }
 
 function rememberBoard(boardId: string): void {
@@ -292,6 +340,7 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   attrFilters: {},
   characterDialogOpen: false,
   termDialogOpen: false,
+  panelCollapsed: false,
   promptSheets: [],
   selectedPromptId: null,
   filterSheetTypes: [],
@@ -301,72 +350,63 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   future: [],
 
   load: async () => {
-    set({ loadError: null });
+    set({ loadError: null, panelCollapsed: readPanelCollapsed() });
+    const repo = getRepo();
+    const cached = repo.mode === "cloud" ? readSnapshotCache() : null;
+    let canEdit = false;
+    let historyAtCache = -1;
     try {
-      const repo = getRepo();
-      const canEdit = await repo.canEdit();
-      const boards = await repo.listBoards();
-      const boardId = initialBoardId(boards);
-      if (!boardId) {
-        set({ ready: true, mode: repo.mode, canEdit, boards, loadError: null });
-        return;
+      canEdit = await repo.canEdit();
+      if (cached && !get().ready) {
+        set({
+          ...snapshotFields(cached),
+          ready: true,
+          mode: repo.mode,
+          canEdit,
+          selectedPromptId: null,
+          camera: readCamera(cached.boardId ?? ""),
+        });
+        historyAtCache = get().history.length;
       }
-      if (canEdit) {
-        await clearSeedAssets(repo);
-        await ensureStarterTags(repo);
+      const fresh = await repo.loadSnapshot(cached?.boardId ?? lastBoardId());
+      writeSnapshotCache(repo.mode, fresh);
+      const state = get();
+      const untouched =
+        historyAtCache < 0 ||
+        (state.boardId === fresh.boardId &&
+          state.history.length === historyAtCache &&
+          dirty.size === 0 &&
+          state.uploads.length === 0);
+      if (untouched) {
+        set({
+          ...snapshotFields(fresh),
+          ready: true,
+          mode: repo.mode,
+          canEdit,
+          loadError: null,
+          ...(historyAtCache < 0
+            ? { selectedPromptId: null, camera: readCamera(fresh.boardId ?? "") }
+            : {}),
+        });
       }
-      const [assets, tags, assetTags, models, characters, characterAssets, promptSheets, customTopCategories] =
-        await Promise.all([
-          repo.listAssets(boardId),
-          repo.listTags(),
-          repo.listAssetTags(),
-          repo.listModels(),
-          repo.listCharacters(),
-          repo.listCharacterAssets(),
-          repo.listPromptSheets(boardId),
-          repo.listCustomTopCategories(),
-        ]);
-      set({
-        ready: true,
-        mode: repo.mode,
-        canEdit,
-        boards,
-        boardId,
-        assets,
-        tags,
-        assetTags,
-        models,
-        characters,
-        characterAssets,
-        promptSheets,
-        customTopCategories,
-        selectedPromptId: null,
-        camera: readCamera(boardId),
-        loadError: null,
-      });
+      if (canEdit) void ensureStarterTags(repo).catch(() => {});
     } catch (err) {
+      console.error("[canvas] load failed", err);
+      if (historyAtCache >= 0) return;
       const message = err instanceof Error ? err.message : "load failed";
       set({ ready: false, loadError: message });
-      console.error("[canvas] load failed", err);
     }
   },
 
   setBoard: async (id) => {
     const repo = getRepo();
-    const [assets, tags, assetTags, promptSheets] = await Promise.all([
-      repo.listAssets(id),
-      repo.listTags(),
-      repo.listAssetTags(),
-      repo.listPromptSheets(id),
-    ]);
+    const snapshot = await repo.loadSnapshot(id);
+    writeSnapshotCache(repo.mode, snapshot);
     get().persistNow();
     rememberBoard(id);
     set({
+      ...snapshotFields(snapshot),
       boardId: id,
-      assets,
-      tags,
-      assetTags,
-      promptSheets,
       selectedIds: [],
       selectedPromptId: null,
       camera: readCamera(id),
@@ -770,6 +810,15 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   },
   setCharacterDialogOpen: (characterDialogOpen) => set({ characterDialogOpen }),
   setTermDialogOpen: (termDialogOpen) => set({ termDialogOpen }),
+  setPanelCollapsed: (panelCollapsed) => {
+    if (get().panelCollapsed === panelCollapsed) return;
+    try {
+      localStorage.setItem(PANEL_COLLAPSED_KEY, panelCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    set({ panelCollapsed });
+  },
   saveCharacter: async (input) => {
     const ids = get().selectedIds;
     if (ids.length === 0 || !input.name.trim()) return;

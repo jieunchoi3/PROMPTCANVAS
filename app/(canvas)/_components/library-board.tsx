@@ -6,8 +6,7 @@ import { optionLabel, attrValues, hasAttrFilters } from "@/lib/attributes";
 import { S } from "@/lib/strings";
 import { kindLabel } from "@/lib/tag-kinds";
 import { customCategoryLabel, tagMatchesTopTab } from "@/lib/top-categories";
-import { BoardSidepanel } from "@/components/board-sidepanel";
-import { BulkAttrPanel } from "@/components/bulk-attr-panel";
+import { RightPanel } from "@/components/right-panel";
 import { useLibraryGridZoom, GRID_CELL_DEFAULT } from "@/hooks/use-library-grid-zoom";
 import { useAssetIngest } from "@/hooks/use-asset-ingest";
 import { AssetLightbox } from "@/components/asset-lightbox";
@@ -21,7 +20,6 @@ import {
   isWardrobeBoard,
   useCanvas,
 } from "@/store/canvas-store";
-import { Inspector } from "./inspector";
 import { BulkBar } from "./bulk-bar";
 import { UndoToast } from "./undo-toast";
 import { UploadQueue } from "./upload-queue";
@@ -78,7 +76,7 @@ export function LibraryBoard() {
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const selectedIds = useCanvas((s) => s.selectedIds);
   const select = useCanvas((s) => s.select);
-  const setLightboxId = useCanvas((s) => s.setLightboxId);
+  const setPanelCollapsed = useCanvas((s) => s.setPanelCollapsed);
   const lightboxId = useCanvas((s) => s.lightboxId);
   const boards = useCanvas((s) => s.boards);
   const boardId = useCanvas((s) => s.boardId);
@@ -175,7 +173,7 @@ export function LibraryBoard() {
 
     select([assetId], false);
     selectionAnchorId.current = assetId;
-    setLightboxId(assetId);
+    setPanelCollapsed(false);
   }
 
   function renderCard(asset: Asset) {
@@ -326,16 +324,7 @@ export function LibraryBoard() {
         <UploadQueue />
         <UndoToast />
       </div>
-      {selectedIds.length === 1 ? (
-        <Inspector />
-      ) : selectedIds.length > 1 &&
-        (isPeopleBoard(currentBoard) ||
-          isWardrobeBoard(currentBoard) ||
-          isVideoBoard(currentBoard)) ? (
-        <BulkAttrPanel board={currentBoard} />
-      ) : (
-        <BoardSidepanel board={currentBoard} />
-      )}
+      <RightPanel board={currentBoard} selectedCount={selectedIds.length} />
       <AssetLightbox asset={lightbox} />
     </div>
   );

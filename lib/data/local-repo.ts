@@ -18,6 +18,7 @@ import type {
   Tag,
   TagKind,
 } from "@/lib/types";
+import { composeSnapshot } from "@/lib/data/compose-snapshot";
 import type { LibraryRepo } from "@/lib/data/repo";
 
 const DB_NAME = "prompt-canvas";
@@ -200,13 +201,16 @@ function localUserId(): string {
 }
 
 export function createLocalRepo(): LibraryRepo {
-  return {
+  const repo: LibraryRepo = {
     mode: "local",
     async getUserId() {
       return localUserId();
     },
     async canEdit() {
       return true;
+    },
+    async loadSnapshot(preferredBoardId) {
+      return composeSnapshot(repo, preferredBoardId);
     },
     async listBoards() {
       const db = await openDb();
@@ -688,4 +692,5 @@ export function createLocalRepo(): LibraryRepo {
       writeCustomTopCategories(categories);
     },
   };
+  return repo;
 }

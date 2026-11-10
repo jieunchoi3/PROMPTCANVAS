@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogIn, LogOut } from "lucide-react";
+import { KeyRound, LogIn, LogOut } from "lucide-react";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { S } from "@/lib/strings";
 import { useCanvas } from "@/store/canvas-store";
@@ -11,6 +12,7 @@ export function AccountButton() {
   const mode = useCanvas((s) => s.mode);
   const canEdit = useCanvas((s) => s.canEdit);
   const [signedIn, setSignedIn] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   useEffect(() => {
     if (mode !== "cloud") return;
@@ -35,6 +37,18 @@ export function AccountButton() {
       >
         {canEdit ? S.ownerMode : S.readOnlyMode}
       </span>
+      {signedIn ? (
+        <button
+          type="button"
+          aria-label={S.changePassword}
+          title={S.changePassword}
+          onClick={() => setPasswordOpen(true)}
+          className="inline-flex size-7 items-center justify-center rounded-md text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+        >
+          <KeyRound className="size-3.5" />
+        </button>
+      ) : null}
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
       {signedIn ? (
         <button
           type="button"

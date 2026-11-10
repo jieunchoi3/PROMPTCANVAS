@@ -109,6 +109,7 @@ export function useCanvasGestures(viewportRef: RefObject<HTMLDivElement | null>)
           useCanvas.getState().select([hit.id], true);
         } else if (!selected.includes(hit.id)) {
           useCanvas.getState().select([hit.id]);
+          useCanvas.getState().setPanelCollapsed(false);
         }
         mode = "move";
         movingIds = e.shiftKey

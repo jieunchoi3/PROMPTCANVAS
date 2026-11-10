@@ -121,7 +121,7 @@ export function PromptEditor({ prompt }: { prompt: PromptSheet | null }) {
               <img
                 src={prompt.previewUrl}
                 alt=""
-                className="aspect-video w-full object-cover"
+                className="block h-auto w-full"
               />
               {canEdit ? (
                 <button
