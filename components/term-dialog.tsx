@@ -196,8 +196,21 @@ export function TermDialog() {
       ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
       : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
     : [];
-  const tabItems = filterTagsByDraft(allTabItems, draft, tr);
   const pickedKeys = new Set(picked.map(keywordKey));
+  const tabItems = draft.trim()
+    ? filterTagsByDraft(allTabItems, draft, tr)
+        .filter(
+          (tag) =>
+            !pickedKeys.has(
+              keywordKey({
+                name: tag.name,
+                kind: tag.kind,
+                categoryKey: tag.category_key ?? null,
+              }),
+            ),
+        )
+        .slice(0, 8)
+    : [];
 
   return (
     <Dialog
