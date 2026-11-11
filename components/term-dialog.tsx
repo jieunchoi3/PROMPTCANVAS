@@ -14,8 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ingestFiles } from "@/lib/ingest";
 import { S } from "@/lib/strings";
-import { groupTags, filterTagsByDraft } from "@/lib/tag-kinds";
-import { customCategoryId, mergeTopTabs, tagMatchesTopTab } from "@/lib/top-categories";
+import { customCategoryId, mergeTopTabs } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
 import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
@@ -35,7 +34,6 @@ function keywordKey(k: { name: string; kind: TagKind; categoryKey: string | null
 export function TermDialog() {
   const open = useCanvas((s) => s.termDialogOpen);
   const setOpen = useCanvas((s) => s.setTermDialogOpen);
-  const tags = useCanvas((s) => s.tags);
   const customTopCategories = useCanvas((s) => s.customTopCategories);
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -54,7 +52,6 @@ export function TermDialog() {
     () => mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) })),
     [customTopCategories, tr],
   );
-  const grouped = useMemo(() => groupTags(tags), [tags]);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
   useEffect(() => {
@@ -191,26 +188,6 @@ export function TermDialog() {
     }
   }
 
-  const allTabItems = activeTab
-    ? activeTab.builtin
-      ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
-      : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
-    : [];
-  const pickedKeys = new Set(picked.map(keywordKey));
-  const tabItems = draft.trim()
-    ? filterTagsByDraft(allTabItems, draft, tr)
-        .filter(
-          (tag) =>
-            !pickedKeys.has(
-              keywordKey({
-                name: tag.name,
-                kind: tag.kind,
-                categoryKey: tag.category_key ?? null,
-              }),
-            ),
-        )
-        .slice(0, 8)
-    : [];
 
   return (
     <Dialog
@@ -333,34 +310,6 @@ export function TermDialog() {
                       {S.tagCreate}
                     </Button>
                   </div>
-                  {tabItems.length > 0 ? (
-                    <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
-                      {tabItems.map((tag) => {
-                        const keyword: PickedKeyword = {
-                          name: tag.name,
-                          kind: tag.kind,
-                          categoryKey: tag.category_key ?? null,
-                          tabLabel: activeTab.label,
-                        };
-                        const on = pickedKeys.has(keywordKey(keyword));
-                        return (
-                          <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() => togglePicked(keyword)}
-                            className={cn(
-                              "h-6 rounded-full px-2 text-[12px]",
-                              on
-                                ? "bg-[#D9B382] text-[#0B0B0D]"
-                                : "bg-white/5 text-zinc-400 hover:bg-white/10",
-                            )}
-                          >
-                            {tr(tag.name)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
                 </>
               ) : null}
             </div>

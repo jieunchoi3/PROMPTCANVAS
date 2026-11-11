@@ -5,7 +5,6 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/locale";
 import { S } from "@/lib/strings";
-import { groupTags, filterTagsByDraft } from "@/lib/tag-kinds";
 import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import {
@@ -44,21 +43,10 @@ export function TagPicker({
     () => mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) })),
     [customTopCategories, tr],
   );
-  const grouped = useMemo(() => groupTags(tags), [tags]);
   const active = useMemo(() => new Set(activeIds), [activeIds]);
   const activeTags = useMemo(() => tags.filter((tag) => active.has(tag.id)), [tags, active]);
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
-  const allTabItems = activeTab
-    ? activeTab.builtin
-      ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
-      : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
-    : [];
-  const tabItems = draft.trim()
-    ? filterTagsByDraft(allTabItems, draft, tr)
-        .filter((tag) => !active.has(tag.id))
-        .slice(0, 8)
-    : [];
   const attachedGroups = useMemo(() => {
     const groups = new Map<string, { label: string; tags: Tag[] }>();
     for (const tag of activeTags) {
@@ -209,28 +197,6 @@ export function TagPicker({
               {S.tagCreate}
             </Button>
           </div>
-          {tabItems.length > 0 ? (
-            <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-              {tabItems.map((tag) => {
-                const on = active.has(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => onToggle(tag.id)}
-                    className={cn(
-                      "h-6 rounded-full px-2 text-[12px]",
-                      on
-                        ? "bg-[#D9B382] text-[#0B0B0D]"
-                        : "bg-white/5 text-zinc-400 hover:bg-white/10",
-                    )}
-                  >
-                    {tr(tag.name)}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
         </>
       ) : null}
     </div>
