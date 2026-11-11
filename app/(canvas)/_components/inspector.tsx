@@ -87,6 +87,19 @@ export function Inspector() {
         />
       </button>
 
+      {attrDefs.length === 0 ? (
+        <div className="mb-4">
+          <div className="mb-1.5 text-[11px] uppercase tracking-wide text-zinc-500">
+            {S.inspectorTags}
+          </div>
+          <TagPicker
+            key={asset.id}
+            activeIds={linkedIds}
+            onToggle={(id) => void toggleTagOnSelection(id)}
+          />
+        </div>
+      ) : null}
+
       <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-zinc-500">
         <span>{S.inspectorPrompt}</span>
         <span className="normal-case tracking-normal">{S.charCount(asset.prompt.length)}</span>
@@ -201,19 +214,6 @@ export function Inspector() {
         </>
       ) : (
         <>
-          <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
-            {S.inspectorTags}
-          </div>
-          {canEdit ? (
-            <p className="mb-2 text-[11px] leading-relaxed text-zinc-500">
-              {S.inspectorTagsHint}
-            </p>
-          ) : null}
-          <TagPicker
-            activeIds={linkedIds}
-            onToggle={(id) => void toggleTagOnSelection(id)}
-          />
-
           {canEdit ? (
             <div className="mt-4 mb-1 text-[11px] uppercase tracking-wide text-zinc-500">
               {S.inspectorReverse}

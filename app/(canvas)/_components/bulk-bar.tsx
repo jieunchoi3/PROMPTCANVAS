@@ -54,6 +54,7 @@ export function BulkBar() {
           </PopoverTrigger>
           <PopoverContent className="w-72 p-3" align="center" side="top">
             <TagPicker
+              alwaysEditing
               activeIds={shared}
               onToggle={(id) => void toggleTagOnSelection(id)}
             />

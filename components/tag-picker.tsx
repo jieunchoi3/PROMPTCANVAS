@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/locale";
 import { S } from "@/lib/strings";
 import { groupTags, filterTagsByDraft } from "@/lib/tag-kinds";
 import { useTr } from "@/hooks/use-tr";
@@ -23,9 +24,11 @@ function tabFor(tag: Tag, tabs: TopCategoryTab[]): TopCategoryTab | undefined {
 export function TagPicker({
   activeIds,
   onToggle,
+  alwaysEditing = false,
 }: {
   activeIds: string[];
   onToggle: (tagId: string) => void;
+  alwaysEditing?: boolean;
 }) {
   const tags = useCanvas((s) => s.tags);
   const customTopCategories = useCanvas((s) => s.customTopCategories);
@@ -33,6 +36,8 @@ export function TagPicker({
   const canEdit = useCanvas((s) => s.canEdit);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+  const editing = alwaysEditing || adding;
 
   const tr = useTr();
   const tabs = useMemo(
@@ -49,7 +54,25 @@ export function TagPicker({
       ? grouped.find((g) => g.kind === activeTab.id)?.items ?? []
       : tags.filter((tag) => tagMatchesTopTab(tag, activeTab.id))
     : [];
-  const tabItems = filterTagsByDraft(allTabItems, draft, tr);
+  const tabItems = draft.trim()
+    ? filterTagsByDraft(allTabItems, draft, tr)
+        .filter((tag) => !active.has(tag.id))
+        .slice(0, 8)
+    : [];
+  const attachedGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; tags: Tag[] }>();
+    for (const tag of activeTags) {
+      const tab = tabFor(tag, tabs);
+      const key = tab?.id ?? "other";
+      const group = groups.get(key) ?? { label: tab?.label ?? t("기타", "Other"), tags: [] };
+      group.tags.push(tag);
+      groups.set(key, group);
+    }
+    const order = new Map(tabs.map((tab, index) => [tab.id as string, index]));
+    return [...groups.entries()]
+      .sort(([a], [b]) => (order.get(a) ?? 999) - (order.get(b) ?? 999))
+      .map(([, group]) => group);
+  }, [activeTags, tabs]);
 
   async function addDraft() {
     if (!activeTab) return;
@@ -78,31 +101,30 @@ export function TagPicker({
   }
 
   const attached =
-    activeTags.length > 0 ? (
-      <div className="flex flex-wrap gap-1.5">
-        {activeTags.map((tag) => (
-          <span
-            key={tag.id}
-            className={cn(
-              "inline-flex max-w-full items-center gap-1 rounded-full bg-[#D9B382]/15 py-0.5 pl-2 text-[12px] leading-snug text-[#D9B382]",
-              canEdit ? "pr-1" : "pr-2",
-            )}
-          >
-            <span className="shrink-0 text-[10px] text-[#D9B382]/60">
-              {tabFor(tag, tabs)?.label}
-            </span>
-            <span className="min-w-0 break-words">{tr(tag.name)}</span>
-            {canEdit ? (
-              <button
-                type="button"
-                aria-label={S.tagDelete}
-                onClick={() => onToggle(tag.id)}
-                className="shrink-0 rounded-full p-0.5 hover:bg-[#D9B382]/20"
-              >
-                <X className="size-3" />
-              </button>
-            ) : null}
-          </span>
+    attachedGroups.length > 0 ? (
+      <div className="space-y-1.5">
+        {attachedGroups.map((group) => (
+          <div key={group.label} className="grid grid-cols-[72px_1fr] gap-2 text-[12px] leading-snug">
+            <div className="truncate pt-px text-[11px] text-zinc-500">{group.label}</div>
+            <div className="min-w-0 text-zinc-100">
+              {group.tags.map((tag, index) => (
+                <span key={tag.id} className="group/kw">
+                  {index > 0 ? <span className="text-zinc-600">, </span> : null}
+                  <span className="break-words">{tr(tag.name)}</span>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      aria-label={S.tagDelete}
+                      onClick={() => onToggle(tag.id)}
+                      className="ml-0.5 inline-flex align-middle text-zinc-500 opacity-0 hover:text-zinc-200 group-hover/kw:opacity-100 focus-visible:opacity-100"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     ) : null;
@@ -113,6 +135,18 @@ export function TagPicker({
     <div className="space-y-2.5">
       {attached}
 
+      {!editing ? (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[12px] text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+        >
+          <Plus className="size-3.5" />
+          {S.addKeyword}
+        </button>
+      ) : null}
+
+      {editing ? (
       <div className="flex flex-wrap gap-1">
         {tabs.map((tab) => {
           const count = activeTags.filter((tag) => tagMatchesTopTab(tag, tab.id)).length;
@@ -146,15 +180,22 @@ export function TagPicker({
         </button>
       </div>
 
-      {activeTab ? (
+      ) : null}
+
+      {editing && activeTab ? (
         <>
           <div className="flex gap-1.5">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              autoFocus={adding}
               onKeyUp={(e) => {
                 // Korean IME swallows the Enter keydown that commits composition; keyup still fires once.
                 if (e.key === "Enter") void addDraft();
+                if (e.key === "Escape" && !alwaysEditing) {
+                  setDraft("");
+                  setAdding(false);
+                }
               }}
               placeholder={S.termKeywordPh(activeTab.label)}
               className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[12px] outline-none focus:border-[#D9B382]/60"
