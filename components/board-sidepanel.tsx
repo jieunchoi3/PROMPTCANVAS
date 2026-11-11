@@ -49,7 +49,7 @@ export function BoardSidepanel({ board }: { board: Board | undefined }) {
         : S.videoHint;
 
   return (
-    <aside className="w-72 shrink-0 border-l border-white/10 bg-[#111113] p-3">
+    <aside className="h-full w-72 shrink-0 overflow-y-auto overscroll-contain border-l border-white/10 bg-[#111113] p-3">
       <div className="mb-3">
         <div className="text-sm text-zinc-200">{title}</div>
         <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{hint}</p>

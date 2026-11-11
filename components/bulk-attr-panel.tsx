@@ -46,7 +46,7 @@ export function BulkAttrPanel({ board }: { board: Board | undefined }) {
   if (!canEdit || defs.length === 0 || selectedIds.length < 2) return null;
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l border-white/10 bg-[#111113] px-3 py-3 text-[13px]">
+    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto overscroll-contain border-l [&>*]:shrink-0 border-white/10 bg-[#111113] px-3 py-3 text-[13px]">
       <div className="mb-1 text-sm text-zinc-200">{S.bulkSelected(selectedIds.length)}</div>
       <p className="mb-4 text-[12px] leading-relaxed text-zinc-500">{S.bulkAttrHint}</p>
       <div className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
