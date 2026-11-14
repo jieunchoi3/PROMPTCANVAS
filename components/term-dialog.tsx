@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, Plus, X } from "lucide-react";
+import { ImagePlus, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useTr } from "@/hooks/use-tr";
 import { ingestFiles } from "@/lib/ingest";
+import { analysisToPickedKeywords } from "@/lib/prompt-keyword-schema";
+import type { ReverseAnalysis } from "@/lib/reverse-analysis-schema";
 import { S } from "@/lib/strings";
 import { customCategoryId, mergeTopTabs } from "@/lib/top-categories";
 import type { TagKind } from "@/lib/types";
-import { useTr } from "@/hooks/use-tr";
 import { cn } from "@/lib/utils";
 import { useCanvas } from "@/store/canvas-store";
 
@@ -31,6 +33,14 @@ function keywordKey(k: { name: string; kind: TagKind; categoryKey: string | null
   return `${k.kind}|${k.categoryKey ?? ""}|${k.name.toLowerCase()}`;
 }
 
+async function fileToBase64(file: File): Promise<{ data: string; mimeType: string }> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]!);
+  return { data: btoa(binary), mimeType: file.type || "image/jpeg" };
+}
+
 export function TermDialog() {
   const open = useCanvas((s) => s.termDialogOpen);
   const setOpen = useCanvas((s) => s.setTermDialogOpen);
@@ -43,8 +53,8 @@ export function TermDialog() {
   const [picked, setPicked] = useState<PickedKeyword[]>([]);
   const [fullPrompt, setFullPrompt] = useState("");
   const [notes, setNotes] = useState("");
-  const [runReverse, setRunReverse] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState<"image" | "prompt" | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const tr = useTr();
@@ -53,6 +63,7 @@ export function TermDialog() {
     [customTopCategories, tr],
   );
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const busy = saving || analyzing !== null;
 
   useEffect(() => {
     if (!file) {
@@ -67,6 +78,8 @@ export function TermDialog() {
   useEffect(() => {
     if (!open) return;
     function onPaste(e: ClipboardEvent) {
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target?.closest("input, textarea, [contenteditable=true]")) return;
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of items) {
@@ -90,8 +103,15 @@ export function TermDialog() {
     setPicked([]);
     setFullPrompt("");
     setNotes("");
-    setRunReverse(false);
     setActiveTabId(null);
+    setAnalyzing(null);
+  }
+
+  function mergePicked(added: PickedKeyword[]) {
+    setPicked((current) => {
+      const keys = new Set(current.map(keywordKey));
+      return [...current, ...added.filter((k) => !keys.has(keywordKey(k)))];
+    });
   }
 
   function togglePicked(keyword: PickedKeyword) {
@@ -128,10 +148,7 @@ export function TermDialog() {
         tabLabel: activeTab.label,
       });
     }
-    setPicked((current) => {
-      const keys = new Set(current.map(keywordKey));
-      return [...current, ...added.filter((k) => !keys.has(keywordKey(k)))];
-    });
+    mergePicked(added);
     return added;
   }
 
@@ -142,6 +159,71 @@ export function TermDialog() {
     setActiveTabId(customCategoryId(label));
   }
 
+  async function analyzeImage() {
+    if (!file) {
+      toast.error(S.termAnalyzeNeedImage);
+      return;
+    }
+    setAnalyzing("image");
+    try {
+      const { data, mimeType } = await fileToBase64(file);
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assetId: crypto.randomUUID(),
+          imageBase64: data,
+          mimeType,
+        }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        analysis?: ReverseAnalysis;
+        error?: string;
+      };
+      if (!res.ok || !json.analysis) throw new Error(json.error ?? "analyze_failed");
+      const added = analysisToPickedKeywords(json.analysis, tabs);
+      mergePicked(added);
+      if (json.analysis.final_prompt.trim()) setFullPrompt(json.analysis.final_prompt.trim());
+      toast.success(S.termAnalyzeFilled(added.length));
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      toast.error(detail ? S.analysisFailedDetail(detail) : S.analysisFailed);
+    } finally {
+      setAnalyzing(null);
+    }
+  }
+
+  async function analyzePrompt() {
+    const prompt = fullPrompt.trim();
+    if (!prompt) {
+      toast.error(S.termAnalyzeNeedPrompt);
+      return;
+    }
+    setAnalyzing("prompt");
+    try {
+      const res = await fetch("/api/analyze-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        analysis?: { keywords: ReverseAnalysis["keywords"]; suggested_tags: string[] };
+        error?: string;
+      };
+      if (!res.ok || !json.analysis) throw new Error(json.error ?? "analyze_prompt_failed");
+      const added = analysisToPickedKeywords(json.analysis, tabs);
+      mergePicked(added);
+      toast.success(S.termAnalyzeFilled(added.length));
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "";
+      toast.error(detail ? S.analysisFailedDetail(detail) : S.analysisFailed);
+    } finally {
+      setAnalyzing(null);
+    }
+  }
+
   async function save() {
     if (!file) {
       toast.error(S.termNeedImage);
@@ -149,7 +231,6 @@ export function TermDialog() {
     }
     setSaving(true);
     try {
-      // A keyword typed but not yet confirmed with Enter still counts.
       const pending = await addDraft();
       const pickedKeys = new Set(picked.map(keywordKey));
       const keywords = [...picked, ...pending.filter((k) => !pickedKeys.has(keywordKey(k)))];
@@ -169,18 +250,8 @@ export function TermDialog() {
         state.updateFields(asset.id, { source_note: notes.trim() }, false);
       }
       toast.success(S.termSaved);
-      const shouldReverse = runReverse && !fullPrompt.trim() && asset.kind === "image";
       reset();
       setOpen(false);
-      if (shouldReverse) {
-        void state
-          .analyzeAsset(asset.id)
-          .then(() => toast.success(S.analysisDone))
-          .catch((err) => {
-            const detail = err instanceof Error ? err.message : "";
-            toast.error(detail ? S.analysisFailedDetail(detail) : S.analysisFailed);
-          });
-      }
     } catch {
       toast.error(S.termSaveFailed);
     } finally {
@@ -188,12 +259,11 @@ export function TermDialog() {
     }
   }
 
-
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && !saving) reset();
+        if (!next && !busy) reset();
         setOpen(next);
       }}
     >
@@ -289,28 +359,25 @@ export function TermDialog() {
                 </button>
               </div>
               {activeTab ? (
-                <>
-                  <div className="flex gap-1.5">
-                    <input
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyUp={(e) => {
-                        // Korean IME swallows the Enter keydown that commits composition; keyup still fires once.
-                        if (e.key === "Enter") void addDraft();
-                      }}
-                      placeholder={S.termKeywordPh(activeTab.label)}
-                      className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[13px] outline-none focus:border-[#D9B382]/60"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-                      disabled={!draft.trim()}
-                      onClick={() => void addDraft()}
-                    >
-                      {S.tagCreate}
-                    </Button>
-                  </div>
-                </>
+                <div className="flex gap-1.5">
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyUp={(e) => {
+                      if (e.key === "Enter") void addDraft();
+                    }}
+                    placeholder={S.termKeywordPh(activeTab.label)}
+                    className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[13px] outline-none focus:border-[#D9B382]/60"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
+                    disabled={!draft.trim() || busy}
+                    onClick={() => void addDraft()}
+                  >
+                    {S.tagCreate}
+                  </Button>
+                </div>
               ) : null}
             </div>
 
@@ -363,32 +430,60 @@ export function TermDialog() {
                 placeholder={S.termFullPromptPh}
                 className="min-h-20 border-white/10 bg-black/40 text-[13px]"
               />
-              <label
-                className={cn(
-                  "flex items-center gap-2 text-[12px]",
-                  fullPrompt.trim() ? "text-zinc-600" : "text-zinc-400",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={runReverse && !fullPrompt.trim()}
-                  disabled={Boolean(fullPrompt.trim())}
-                  onChange={(e) => setRunReverse(e.target.checked)}
-                  className="accent-[#D9B382]"
-                />
-                {S.termRunReverse}
-              </label>
+            </div>
+
+            <div className="space-y-1.5 rounded-md border border-white/10 bg-black/20 p-2.5">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-zinc-500">
+                <Sparkles className="size-3.5" />
+                {S.inspectorReverse}
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
+                  disabled={busy || !fullPrompt.trim()}
+                  onClick={() => void analyzePrompt()}
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[12px] text-zinc-100">
+                    {analyzing === "prompt" ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : null}
+                    {analyzing === "prompt" ? S.termAnalyzing : S.termAnalyzePrompt}
+                  </span>
+                  <span className="text-[10px] font-normal text-zinc-500">
+                    {S.termAnalyzePromptHint}
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
+                  disabled={busy || !file}
+                  onClick={() => void analyzeImage()}
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[12px] text-zinc-100">
+                    {analyzing === "image" ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : null}
+                    {analyzing === "image" ? S.termAnalyzing : S.termAnalyzeImage}
+                  </span>
+                  <span className="text-[10px] font-normal text-zinc-500">
+                    {S.termAnalyzeImageHint}
+                  </span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>
             {S.close}
           </Button>
           <Button
             className="bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-            disabled={!file || saving}
+            disabled={!file || busy}
             onClick={() => void save()}
           >
             {saving ? S.termSaving : S.termSave}
