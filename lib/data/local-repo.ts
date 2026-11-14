@@ -20,6 +20,7 @@ import type {
   TagKind,
 } from "@/lib/types";
 import { composeSnapshot } from "@/lib/data/compose-snapshot";
+import { readLocalFlashcardStates, writeLocalFlashcardState } from "@/lib/flashcards";
 import type { LibraryRepo } from "@/lib/data/repo";
 
 const DB_NAME = "prompt-canvas";
@@ -438,7 +439,7 @@ export function createLocalRepo(): LibraryRepo {
     async restore(ids) {
       await this.updateAssets(ids.map((id) => ({ id, fields: { deleted_at: null } })));
     },
-    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null) {
+    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null, id?: string) {
       const trimmed = name.trim();
       const db = await openDb();
       const all = await request<Tag[]>(
@@ -451,7 +452,7 @@ export function createLocalRepo(): LibraryRepo {
       );
       if (existing) return existing;
       const tag: Tag = {
-        id: uuid(),
+        id: id ?? uuid(),
         user_id: localUserId(),
         name: trimmed,
         kind,
@@ -707,6 +708,12 @@ export function createLocalRepo(): LibraryRepo {
       const current = await repo.listTranslations();
       for (const r of rows) current[r.source] = r.translated;
       localStorage.setItem(LOCAL_TRANSLATIONS_KEY, JSON.stringify(current));
+    },
+    async listFlashcardStates() {
+      return readLocalFlashcardStates();
+    },
+    async saveFlashcardState(state) {
+      writeLocalFlashcardState(state);
     },
   };
   return repo;

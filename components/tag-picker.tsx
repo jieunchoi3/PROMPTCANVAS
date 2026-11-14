@@ -72,9 +72,7 @@ export function TagPicker({
     setDraft("");
     const kind = activeTab.builtin ? activeTab.id : "free";
     const categoryKey = activeTab.builtin ? null : activeTab.id;
-    for (const name of names) {
-      await addTagToSelection(name, kind, categoryKey);
-    }
+    await Promise.all(names.map((name) => addTagToSelection(name, kind, categoryKey)));
   }
 
   async function addCategory() {

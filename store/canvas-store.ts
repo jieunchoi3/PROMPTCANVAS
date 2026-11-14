@@ -9,6 +9,7 @@ import {
   translateMissing,
   writeTranslationCache,
 } from "@/lib/auto-translate";
+import { libraryOwnerId } from "@/lib/env";
 import { getLocale } from "@/lib/locale";
 import type { LibrarySnapshot } from "@/lib/data/repo";
 import { ensureStarterTags } from "@/lib/seed-local";
@@ -44,6 +45,7 @@ import type {
   PromptSheetType,
   Rect,
   Tag,
+  TagKind,
   UploadItem,
 } from "@/lib/types";
 
@@ -271,6 +273,69 @@ function rememberBoard(boardId: string): void {
   } catch {
     /* ignore */
   }
+}
+
+const pendingTagWrites = new Map<string, Promise<Tag>>();
+
+/**
+ * Returns a keyword immediately so the UI never waits on the network. A new keyword is
+ * written in the background under the same client-made id; `ready` settles once it exists.
+ */
+function obtainTag(
+  name: string,
+  kind: TagKind,
+  categoryKey: string | null,
+): { tag: Tag; ready: Promise<Tag> } {
+  const state = useCanvas.getState();
+  const lower = name.toLowerCase();
+  const known = state.tags.find(
+    (t) => t.name.toLowerCase() === lower && (t.category_key ?? null) === categoryKey,
+  );
+  if (known) {
+    return { tag: known, ready: pendingTagWrites.get(known.id) ?? Promise.resolve(known) };
+  }
+  const tag: Tag = {
+    id: crypto.randomUUID(),
+    user_id: libraryOwnerId(),
+    name,
+    kind,
+    category_key: categoryKey,
+    color: "#D9B382",
+    use_count: 0,
+  };
+  useCanvas.setState({ tags: [...state.tags, tag] });
+  const ready = getRepo()
+    .upsertTag(name, kind, categoryKey, tag.id)
+    .then(
+      (saved) => {
+        pendingTagWrites.delete(tag.id);
+        const current = useCanvas.getState();
+        const merged = { ...saved, category_key: saved.category_key ?? null };
+        const others = current.tags.filter((t) => t.id !== tag.id && t.id !== saved.id);
+        const local = current.tags.find((t) => t.id === tag.id);
+        useCanvas.setState({
+          tags: [...others, { ...merged, use_count: local?.use_count ?? merged.use_count }],
+          assetTags:
+            saved.id === tag.id
+              ? current.assetTags
+              : current.assetTags.map((at) =>
+                  at.tag_id === tag.id ? { ...at, tag_id: saved.id } : at,
+                ),
+        });
+        return saved;
+      },
+      (err) => {
+        pendingTagWrites.delete(tag.id);
+        const current = useCanvas.getState();
+        useCanvas.setState({
+          tags: current.tags.filter((t) => t.id !== tag.id),
+          assetTags: current.assetTags.filter((at) => at.tag_id !== tag.id),
+        });
+        throw err;
+      },
+    );
+  pendingTagWrites.set(tag.id, ready);
+  return { tag, ready };
 }
 
 let translationWatcherStarted = false;
@@ -630,29 +695,39 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
 
   addTagToSelection: async (name, kind = "free", categoryKey = null) => {
     const ids = get().selectedIds;
-    if (ids.length === 0 || !name.trim()) return;
-    const repo = getRepo();
-    const tag = await repo.upsertTag(name, kind, categoryKey);
+    const trimmed = name.trim();
+    if (ids.length === 0 || !trimmed) return;
+    const { tag, ready } = obtainTag(trimmed, kind, categoryKey);
     const missing = ids.filter(
       (id) => !get().assetTags.some((at) => at.asset_id === id && at.tag_id === tag.id),
     );
-    await Promise.all(missing.map((id) => repo.addAssetTag(id, tag.id)));
-    const tags = get().tags.some((t) => t.id === tag.id)
-      ? get().tags.map((t) =>
-          t.id === tag.id ? { ...t, use_count: t.use_count + missing.length } : t,
-        )
-      : [...get().tags, { ...tag, use_count: missing.length }];
-    const extra: AssetTag[] = missing.map((asset_id) => ({
-      asset_id,
-      tag_id: tag.id,
-      source: "user" as const,
-    }));
-    set({
-      tags,
-      assetTags: [...get().assetTags, ...extra],
-    });
     if (missing.length > 0) {
+      set({
+        tags: get().tags.map((t) =>
+          t.id === tag.id ? { ...t, use_count: t.use_count + missing.length } : t,
+        ),
+        assetTags: [
+          ...get().assetTags,
+          ...missing.map((asset_id) => ({ asset_id, tag_id: tag.id, source: "user" as const })),
+        ],
+      });
       get().commitHistory({ kind: "tag-add", assetIds: missing, tagId: tag.id });
+    }
+    let savedId = tag.id;
+    try {
+      const saved = await ready;
+      savedId = saved.id;
+      const repo = getRepo();
+      await Promise.all(missing.map((id) => repo.addAssetTag(id, saved.id)));
+    } catch (err) {
+      console.error("[canvas] keyword add failed", err);
+      set({
+        assetTags: get().assetTags.filter(
+          (at) =>
+            !((at.tag_id === tag.id || at.tag_id === savedId) && missing.includes(at.asset_id)),
+        ),
+      });
+      toast.error(S.termKeywordFailed(trimmed));
     }
   },
 
@@ -664,7 +739,9 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
       get().assetTags.some((at) => at.asset_id === id && at.tag_id === tagId),
     );
     if (allHave) {
-      await Promise.all(ids.map((id) => repo.removeAssetTag(id, tagId)));
+      const removed = get().assetTags.filter(
+        (at) => at.tag_id === tagId && ids.includes(at.asset_id),
+      );
       set({
         assetTags: get().assetTags.filter(
           (at) => !(at.tag_id === tagId && ids.includes(at.asset_id)),
@@ -674,12 +751,18 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
         ),
       });
       get().commitHistory({ kind: "tag-remove", assetIds: ids, tagId });
+      try {
+        await Promise.all(ids.map((id) => repo.removeAssetTag(id, tagId)));
+      } catch (err) {
+        console.error("[canvas] keyword remove failed", err);
+        set({ assetTags: [...get().assetTags, ...removed] });
+        toast.error(S.keywordSaveFailed);
+      }
       return;
     }
     const missing = ids.filter(
       (id) => !get().assetTags.some((at) => at.asset_id === id && at.tag_id === tagId),
     );
-    await Promise.all(missing.map((id) => repo.addAssetTag(id, tagId)));
     set({
       assetTags: [
         ...get().assetTags,
@@ -694,20 +777,27 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
       ),
     });
     get().commitHistory({ kind: "tag-add", assetIds: missing, tagId });
+    try {
+      const saved = await (pendingTagWrites.get(tagId) ?? Promise.resolve(null));
+      const realId = saved?.id ?? tagId;
+      await Promise.all(missing.map((id) => repo.addAssetTag(id, realId)));
+    } catch (err) {
+      console.error("[canvas] keyword add failed", err);
+      set({
+        assetTags: get().assetTags.filter(
+          (at) => !(at.tag_id === tagId && missing.includes(at.asset_id)),
+        ),
+      });
+      toast.error(S.keywordSaveFailed);
+    }
   },
 
   createTag: async (name, kind, categoryKey = null) => {
     const trimmed = name.trim();
     if (!trimmed) return null;
-    try {
-      const tag = await getRepo().upsertTag(trimmed, kind, categoryKey);
-      if (!get().tags.some((t) => t.id === tag.id)) {
-        set({ tags: [...get().tags, tag] });
-      }
-      return tag;
-    } catch {
-      return null;
-    }
+    const { tag, ready } = obtainTag(trimmed, kind, categoryKey);
+    ready.catch(() => toast.error(S.termKeywordFailed(trimmed)));
+    return tag;
   },
 
   renameTag: async (id, name) => {

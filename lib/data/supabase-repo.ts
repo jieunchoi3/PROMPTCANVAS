@@ -4,6 +4,7 @@ import { resolveBoardKind, sortBoards } from "@/lib/board-kind";
 import { BUILTIN_BOARD_NAMES } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import type {
+  FlashcardState,
   Asset,
   AssetTag,
   Board,
@@ -368,7 +369,7 @@ export function createSupabaseRepo(): LibraryRepo {
         .in("id", ids);
       if (error) throw error;
     },
-    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null) {
+    async upsertTag(name, kind: TagKind = "free", categoryKey: string | null = null, id?: string) {
       const user_id = await workspaceUserId();
       const trimmed = name.trim();
       let query = supabase
@@ -383,6 +384,7 @@ export function createSupabaseRepo(): LibraryRepo {
       const { data, error } = await supabase
         .from("tags")
         .insert({
+          ...(id ? { id } : {}),
           user_id,
           name: trimmed,
           kind,
@@ -604,6 +606,23 @@ export function createSupabaseRepo(): LibraryRepo {
         rows.map((r) => ({ source: r.source, translated: r.translated, lang: "en" })),
         { onConflict: "source_md5,lang" },
       );
+      if (error) throw error;
+    },
+    async listFlashcardStates() {
+      const { data, error } = await supabase
+        .from("flashcard_reviews")
+        .select("card_id, due_at, interval_days, reps, lapses")
+        .range(0, 9999);
+      if (error) throw error;
+      return (data ?? []) as FlashcardState[];
+    },
+    async saveFlashcardState(state) {
+      const { error } = await supabase
+        .from("flashcard_reviews")
+        .upsert(
+          { ...state, user_id: libraryOwnerId(), updated_at: new Date().toISOString() },
+          { onConflict: "user_id,card_id" },
+        );
       if (error) throw error;
     },
   };

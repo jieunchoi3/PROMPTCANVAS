@@ -5,6 +5,7 @@ import type {
   BoardKind,
   Character,
   CharacterAsset,
+  FlashcardState,
   NewAssetInput,
   PromptSheet,
   Tag,
@@ -43,7 +44,7 @@ export type LibraryRepo = {
   ): Promise<void>;
   softDelete(ids: string[]): Promise<void>;
   restore(ids: string[]): Promise<void>;
-  upsertTag(name: string, kind?: TagKind, categoryKey?: string | null): Promise<Tag>;
+  upsertTag(name: string, kind?: TagKind, categoryKey?: string | null, id?: string): Promise<Tag>;
   updateTag(id: string, fields: { name?: string; kind?: TagKind; category_key?: string | null }): Promise<Tag>;
   deleteTag(id: string): Promise<void>;
   addAssetTag(assetId: string, tagId: string): Promise<void>;
@@ -73,4 +74,6 @@ export type LibraryRepo = {
   /** Source text → English translation of the owner's Korean content. */
   listTranslations(): Promise<Record<string, string>>;
   saveTranslations(rows: { source: string; translated: string }[]): Promise<void>;
+  listFlashcardStates(): Promise<FlashcardState[]>;
+  saveFlashcardState(state: FlashcardState): Promise<void>;
 };

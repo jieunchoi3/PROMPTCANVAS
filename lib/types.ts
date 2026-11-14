@@ -74,6 +74,14 @@ export type AssetTag = {
   source: TagSource;
 };
 
+export type FlashcardState = {
+  card_id: string;
+  due_at: string;
+  interval_days: number;
+  reps: number;
+  lapses: number;
+};
+
 export type CharacterRole =
   | "front"
   | "side"
