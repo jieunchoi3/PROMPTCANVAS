@@ -92,6 +92,7 @@ type CanvasState = {
   attrFilters: Record<string, string[]>;
   characterDialogOpen: boolean;
   termDialogOpen: boolean;
+  flashcardsOpen: boolean;
   panelCollapsed: boolean;
   promptSheets: PromptSheet[];
   selectedPromptId: string | null;
@@ -153,6 +154,7 @@ type CanvasState = {
   applyAttrToSelection: (key: string, value: string) => void;
   setCharacterDialogOpen: (open: boolean) => void;
   setTermDialogOpen: (open: boolean) => void;
+  setFlashcardsOpen: (open: boolean) => void;
   setPanelCollapsed: (collapsed: boolean) => void;
   saveCharacter: (input: {
     name: string;
@@ -448,6 +450,7 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   attrFilters: {},
   characterDialogOpen: false,
   termDialogOpen: false,
+  flashcardsOpen: false,
   panelCollapsed: false,
   promptSheets: [],
   selectedPromptId: null,
@@ -957,6 +960,7 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   },
   setCharacterDialogOpen: (characterDialogOpen) => set({ characterDialogOpen }),
   setTermDialogOpen: (termDialogOpen) => set({ termDialogOpen }),
+  setFlashcardsOpen: (flashcardsOpen) => set({ flashcardsOpen }),
   setPanelCollapsed: (panelCollapsed) => {
     if (get().panelCollapsed === panelCollapsed) return;
     try {
@@ -1414,6 +1418,9 @@ export function filteredAssets(state: CanvasState): Asset[] {
       state.tags,
       activeTabs,
     );
+    list = list.filter((asset) => matched.has(asset.id));
+  } else if (state.expandedTopTabId) {
+    const matched = coarseTagTabFilter(ids, state.assetTags, state.tags, [state.expandedTopTabId]);
     list = list.filter((asset) => matched.has(asset.id));
   }
 

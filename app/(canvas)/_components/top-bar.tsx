@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronUp, LayoutGrid, Plus, Search, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers, LayoutGrid, Plus, Search, Upload } from "lucide-react";
 import { CHARACTER_ATTRIBUTES } from "@/config/character-attributes";
 import { PROMPT_SHEET_TYPES } from "@/config/prompt-sheet-types";
 import { VIDEO_ATTRIBUTES } from "@/config/video-attributes";
@@ -83,6 +83,10 @@ export function TopBar() {
   const filterTagIds = useCanvas((s) => s.filterTagIds);
   const canEdit = useCanvas((s) => s.canEdit);
   const tr = useTr();
+  const boardHasKeywords = useCanvas((s) => {
+    const ids = new Set(s.assets.map((asset) => asset.id));
+    return s.assetTags.some((link) => ids.has(link.asset_id));
+  });
   const attrFilters = useCanvas((s) => s.attrFilters);
   const createPromptSheet = useCanvas((s) => s.createPromptSheet);
   const current = boards.find((b) => b.id === boardId);
@@ -239,6 +243,19 @@ export function TopBar() {
         >
           <LayoutGrid className="size-4" />
         </Link>
+
+        {!promptsBoard && !attrCategoryDefs ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            disabled={!boardHasKeywords}
+            onClick={() => useCanvas.getState().setFlashcardsOpen(true)}
+          >
+            <Layers className="size-3.5" />
+            {S.flashcards}
+          </Button>
+        ) : null}
 
         {!canEdit ? null : promptsBoard ? (
           <Button

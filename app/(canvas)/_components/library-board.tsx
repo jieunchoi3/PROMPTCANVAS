@@ -199,7 +199,7 @@ export function LibraryBoard() {
     const inActiveTab = ownTags.filter((tag) =>
       activeTabs.some((tabId) => tagMatchesTopTab(tag, tabId)),
     );
-    const titleKeywords = (inActiveTab.length > 0 ? inActiveTab : ownTags).map((tag) =>
+    const titleKeywords = (activeTabs.length > 0 ? inActiveTab : ownTags).map((tag) =>
       tr(tag.name),
     );
     return (

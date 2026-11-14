@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { TopBar } from "@/app/(canvas)/_components/top-bar";
 import { CommandPalette } from "@/app/(canvas)/_components/command-palette";
 import { CharacterDialog } from "@/components/character-dialog";
+import { FlashcardStudy } from "@/components/flashcard-study";
 import { TermDialog } from "@/components/term-dialog";
 import { Button } from "@/components/ui/button";
 import { useMounted } from "@/hooks/use-mounted";
@@ -54,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <CharacterDialog />
       <TermDialog />
+      <FlashcardStudy />
     </div>
   );
 }

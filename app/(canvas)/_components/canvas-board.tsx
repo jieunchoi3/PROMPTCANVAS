@@ -32,6 +32,7 @@ export function CanvasBoard() {
   const camera = useCanvas((s) => s.camera);
   const filterKinds = useCanvas((s) => s.filterKinds);
   const filterTagIds = useCanvas((s) => s.filterTagIds);
+  const expandedTopTabId = useCanvas((s) => s.expandedTopTabId);
   const lightboxId = useCanvas((s) => s.lightboxId);
   const setLightboxId = useCanvas((s) => s.setLightboxId);
   const ready = useCanvas((s) => s.ready);
@@ -39,7 +40,13 @@ export function CanvasBoard() {
   const boardId = useCanvas((s) => s.boardId);
   const currentBoard = boards.find((b) => b.id === boardId);
 
-  const visible = filteredAssets({ ...useCanvas.getState(), assets, filterKinds, filterTagIds });
+  const visible = filteredAssets({
+    ...useCanvas.getState(),
+    assets,
+    filterKinds,
+    filterTagIds,
+    expandedTopTabId,
+  });
   const selected = visible.filter((a) => selectedIds.includes(a.id));
   const mounted = visible.filter((a) =>
     size.w === 0

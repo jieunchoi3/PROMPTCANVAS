@@ -52,7 +52,7 @@ export function AssetNode({
     ? ownTags.filter((tag) => tagMatchesTopTab(tag, expandedTopTabId))
     : [];
   const categoryKeywords = expandedTopTabId
-    ? (expandedTags.length > 0 ? expandedTags : ownTags).map((tag) => tr(tag.name))
+    ? expandedTags.map((tag) => tr(tag.name))
     : null;
 
   return (
