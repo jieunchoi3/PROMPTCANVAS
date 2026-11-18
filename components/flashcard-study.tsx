@@ -11,13 +11,16 @@ import {
   buildSession,
   countCards,
   filterCards,
+  formatIntervalLabel,
   grade,
+  previewIntervalMs,
   readLocalFlashcardStates,
   writeLocalFlashcardState,
   type Flashcard,
   type FlashcardAnswer,
   type FlashcardMode,
 } from "@/lib/flashcards";
+import { getLocale } from "@/lib/locale";
 import { S } from "@/lib/strings";
 import { mergeTopTabs } from "@/lib/top-categories";
 import type { FlashcardState } from "@/lib/types";
@@ -111,7 +114,11 @@ export function FlashcardStudy() {
         writeLocalFlashcardState(next);
       }
       const rest = queue.slice(1);
+      // Same-session requeue for short learning delays (Again ~1m, Hard ~10m).
       if (result === "again") rest.splice(Math.min(AGAIN_GAP, rest.length), 0, current);
+      else if (result === "hard" && next.interval_days < 1) {
+        rest.splice(Math.min(AGAIN_GAP * 3, rest.length), 0, current);
+      }
       setQueue(rest);
       setFlipped(false);
       setReviewed((n) => n + 1);
@@ -131,7 +138,10 @@ export function FlashcardStudy() {
       } else if (flipped && e.key === "1") {
         e.preventDefault();
         answer("again");
-      } else if (flipped && (e.key === "2" || e.key === " " || e.key === "Enter")) {
+      } else if (flipped && e.key === "2") {
+        e.preventDefault();
+        answer("hard");
+      } else if (flipped && (e.key === "3" || e.key === " " || e.key === "Enter")) {
         e.preventDefault();
         answer("good");
       }
@@ -296,18 +306,52 @@ export function FlashcardStudy() {
                 <kbd className="ml-2 text-[11px] text-zinc-500">Space</kbd>
               </Button>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <Button className="h-10" variant="outline" onClick={() => answer("again")}>
-                  {S.flashcardDontKnow}
-                  <kbd className="ml-2 text-[11px] text-zinc-500">1</kbd>
-                </Button>
-                <Button
-                  className="h-10 bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90"
-                  onClick={() => answer("good")}
-                >
-                  {S.flashcardKnow}
-                  <kbd className="ml-2 text-[11px] text-[#0B0B0D]/60">2</kbd>
-                </Button>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(
+                  [
+                    { result: "again" as const, title: S.flashcardDontKnow, key: "1" },
+                    { result: "hard" as const, title: S.flashcardHard, key: "2" },
+                    { result: "good" as const, title: S.flashcardKnow, key: "3" },
+                  ] as const
+                ).map(({ result, title, key }) => {
+                  const previous = states?.get(current.id);
+                  const label = formatIntervalLabel(
+                    previewIntervalMs(previous, result, Date.now()),
+                    getLocale(),
+                  );
+                  const isGood = result === "good";
+                  return (
+                    <Button
+                      key={result}
+                      className={cn(
+                        "h-auto min-h-10 min-w-0 flex-col gap-0.5 whitespace-normal px-1.5 py-2",
+                        isGood && "bg-[#D9B382] text-[#0B0B0D] hover:bg-[#D9B382]/90",
+                      )}
+                      variant={isGood ? "default" : "outline"}
+                      onClick={() => answer(result)}
+                    >
+                      <span className="inline-flex max-w-full items-center justify-center gap-1 text-[12px]">
+                        <span className="truncate">{title}</span>
+                        <kbd
+                          className={cn(
+                            "shrink-0 text-[10px]",
+                            isGood ? "text-[#0B0B0D]/60" : "text-zinc-500",
+                          )}
+                        >
+                          {key}
+                        </kbd>
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[11px] font-normal",
+                          isGood ? "text-[#0B0B0D]/70" : "text-zinc-500",
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </Button>
+                  );
+                })}
               </div>
             )}
           </>

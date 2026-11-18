@@ -2,7 +2,7 @@ import { tagMatchesTopTab, type TopCategoryTab } from "@/lib/top-categories";
 import type { Asset, AssetTag, FlashcardState, Tag } from "@/lib/types";
 
 export type FlashcardMode = "all" | "image" | "term";
-export type FlashcardAnswer = "again" | "good";
+export type FlashcardAnswer = "again" | "hard" | "good";
 
 export type Flashcard =
   | {
@@ -23,6 +23,17 @@ export type Flashcard =
     };
 
 const DAY_MS = 86_400_000;
+const MINUTE_MS = 60_000;
+/** Anki default learning "Again" step (1m). */
+const AGAIN_DELAY_MS = 1 * MINUTE_MS;
+/** Anki default second learning step / Hard on a new card (10m). */
+const HARD_LEARNING_MS = 10 * MINUTE_MS;
+/** Anki default graduating interval / first Good (1 day). */
+const GRADUATING_DAYS = 1;
+/** Anki default Hard multiplier on review cards. */
+const HARD_FACTOR = 1.2;
+/** Anki default ease factor for Good on review cards. */
+const EASE = 2.5;
 const EXAMPLES_PER_TERM = 6;
 const LOCAL_KEY = "pc.flashcards.v1";
 
@@ -135,26 +146,53 @@ export function buildSession(
   return shuffle([...due, ...fresh]);
 }
 
-/** Two-button spaced repetition: "again" resets the card, "good" grows the gap 1 → 3 → 8 → 20 days … */
+/**
+ * Three-button SM-2 inspired by Anki defaults (Again / Hard / Good):
+ * - Again → ~1 minute, interval reset
+ * - Hard → 10 minutes while learning; review interval × 1.2
+ * - Good → graduate at 1 day, then × ease 2.5 (1 → 3 → 8 → 20 …)
+ */
 export function grade(
   cardId: string,
   previous: FlashcardState | undefined,
   answer: FlashcardAnswer,
   now: number,
 ): FlashcardState {
+  const learning = !previous || previous.interval_days < 1;
+
   if (answer === "again") {
     return {
       card_id: cardId,
-      due_at: new Date(now).toISOString(),
+      due_at: new Date(now + AGAIN_DELAY_MS).toISOString(),
       interval_days: 0,
       reps: previous?.reps ?? 0,
       lapses: (previous?.lapses ?? 0) + 1,
     };
   }
-  const interval =
-    !previous || previous.interval_days < 1
-      ? 1
-      : Math.max(1, Math.round(previous.interval_days * 2.5));
+
+  if (answer === "hard") {
+    if (learning) {
+      return {
+        card_id: cardId,
+        due_at: new Date(now + HARD_LEARNING_MS).toISOString(),
+        interval_days: 0,
+        reps: previous?.reps ?? 0,
+        lapses: previous?.lapses ?? 0,
+      };
+    }
+    const interval = Math.max(GRADUATING_DAYS, Math.round(previous!.interval_days * HARD_FACTOR));
+    return {
+      card_id: cardId,
+      due_at: new Date(now + interval * DAY_MS).toISOString(),
+      interval_days: interval,
+      reps: (previous?.reps ?? 0) + 1,
+      lapses: previous?.lapses ?? 0,
+    };
+  }
+
+  const interval = learning
+    ? GRADUATING_DAYS
+    : Math.max(GRADUATING_DAYS, Math.round(previous!.interval_days * EASE));
   return {
     card_id: cardId,
     due_at: new Date(now + interval * DAY_MS).toISOString(),
@@ -162,6 +200,32 @@ export function grade(
     reps: (previous?.reps ?? 0) + 1,
     lapses: previous?.lapses ?? 0,
   };
+}
+
+/** Milliseconds until the card would next be due after this answer. */
+export function previewIntervalMs(
+  previous: FlashcardState | undefined,
+  answer: FlashcardAnswer,
+  now: number,
+): number {
+  const next = grade("__preview__", previous, answer, now);
+  return Math.max(0, new Date(next.due_at).getTime() - now);
+}
+
+/** Compact Anki-style label: 1분 / 10분 / 1일 / 4일 / 2개월 */
+export function formatIntervalLabel(ms: number, locale: "ko" | "en"): string {
+  const minutes = Math.max(1, Math.round(ms / MINUTE_MS));
+  if (minutes < 60) return locale === "ko" ? `${minutes}분` : `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return locale === "ko" ? `${hours}시간` : `${hours}h`;
+  const days = Math.max(1, Math.round(ms / DAY_MS));
+  if (days < 30) return locale === "ko" ? `${days}일` : `${days}d`;
+  if (days < 365) {
+    const months = Math.max(1, Math.round(days / 30));
+    return locale === "ko" ? `${months}개월` : `${months}mo`;
+  }
+  const years = Math.max(1, Math.round(days / 365));
+  return locale === "ko" ? `${years}년` : `${years}y`;
 }
 
 function readLocalMap(): Record<string, FlashcardState> {
