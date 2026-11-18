@@ -441,34 +441,34 @@ export function TermDialog() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
+                  className="h-auto min-w-0 flex-col items-stretch gap-0.5 whitespace-normal px-3 py-2 text-left"
                   disabled={busy || !fullPrompt.trim()}
                   onClick={() => void analyzePrompt()}
                 >
-                  <span className="inline-flex items-center gap-1.5 text-[12px] text-zinc-100">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] break-words text-zinc-100">
                     {analyzing === "prompt" ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader2 className="size-3.5 shrink-0 animate-spin" />
                     ) : null}
                     {analyzing === "prompt" ? S.termAnalyzing : S.termAnalyzePrompt}
                   </span>
-                  <span className="text-[10px] font-normal text-zinc-500">
+                  <span className="text-[10px] font-normal break-words text-zinc-500">
                     {S.termAnalyzePromptHint}
                   </span>
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
+                  className="h-auto min-w-0 flex-col items-stretch gap-0.5 whitespace-normal px-3 py-2 text-left"
                   disabled={busy || !file}
                   onClick={() => void analyzeImage()}
                 >
-                  <span className="inline-flex items-center gap-1.5 text-[12px] text-zinc-100">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 text-[12px] break-words text-zinc-100">
                     {analyzing === "image" ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader2 className="size-3.5 shrink-0 animate-spin" />
                     ) : null}
                     {analyzing === "image" ? S.termAnalyzing : S.termAnalyzeImage}
                   </span>
-                  <span className="text-[10px] font-normal text-zinc-500">
+                  <span className="text-[10px] font-normal break-words text-zinc-500">
                     {S.termAnalyzeImageHint}
                   </span>
                 </Button>

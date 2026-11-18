@@ -144,6 +144,7 @@ const KO = {
   tagDeleteConfirm: (name: string) =>
     `'${name}'을(를) 지울까요? 장에서만 떼어지고, 요소 자체는 목록에서 사라져요.`,
   tagKind: "분류",
+  tagChangeCategory: "분류 바꾸기",
   tagEmpty: "아직 요소가 없어요. 아래에서 만들어 보세요.",
   tagExists: "같은 이름의 요소가 이미 있어요.",
   tagFilterEmpty: "이 요소로 표시한 장이 아직 없어요.",
@@ -400,6 +401,7 @@ const EN: Strings = {
   tagDeleteConfirm: (name: string) =>
     `Delete '${name}'? It's removed from every image and disappears from the list.`,
   tagKind: "Category",
+  tagChangeCategory: "Change category",
   tagEmpty: "No elements yet. Create one below.",
   tagExists: "An element with that name already exists.",
   tagFilterEmpty: "No images are marked with this element yet.",

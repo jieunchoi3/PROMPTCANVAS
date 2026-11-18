@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTr } from "@/hooks/use-tr";
+import { S } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { mergeTopTabs, tagMatchesTopTab, type TopCategoryTab } from "@/lib/top-categories";
 import type { Tag } from "@/lib/types";
@@ -85,6 +86,7 @@ export function TagTopFilters({
   const toggleFilterTag = useCanvas((s) => s.toggleFilterTag);
   const expandedTabId = useCanvas((s) => s.expandedTopTabId);
   const setExpandedTabId = useCanvas((s) => s.setExpandedTopTabId);
+  const clearFilters = useCanvas((s) => s.clearFilters);
   const tr = useTr();
   const tabs = mergeTopTabs(customTopCategories).map((tab) => ({ ...tab, label: tr(tab.label) }));
   const expanded = tabs.find((tab) => tab.id === expandedTabId) ?? null;
@@ -92,10 +94,18 @@ export function TagTopFilters({
     ? tags.filter((tag) => tagMatchesTopTab(tag, expanded.id))
     : [];
   const activeIds = new Set(filterTagIds);
+  const showingAll = !expandedTabId && filterTagIds.length === 0;
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-1.5">
       <div className={scrollRow}>
+        <button
+          type="button"
+          onClick={() => clearFilters()}
+          className={cn(pillBase, showingAll ? pillOn : pillOff)}
+        >
+          {S.allTypes}
+        </button>
         {tabs.map((tab) => (
           <TagCategoryButton
             key={tab.id}

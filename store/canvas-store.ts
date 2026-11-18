@@ -22,6 +22,7 @@ import { boardLabel } from "@/lib/builtin-boards";
 import { S } from "@/lib/strings";
 import {
   customCategoryId,
+  isBuiltinTabId,
   type CustomTopCategory,
 } from "@/lib/top-categories";
 import {
@@ -137,6 +138,8 @@ type CanvasState = {
   ) => Promise<Tag | null>;
   renameTag: (id: string, name: string) => Promise<boolean>;
   setTagKind: (id: string, kind: Tag["kind"]) => Promise<void>;
+  /** Move a keyword onto a top-category tab (builtin kind or custom category_key). */
+  setTagCategory: (id: string, tabId: string) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
   removeTag: (assetId: string, tagId: string) => Promise<void>;
   deleteSelection: () => Promise<void>;
@@ -384,6 +387,7 @@ const EDIT_ACTIONS = [
   "createTag",
   "renameTag",
   "setTagKind",
+  "setTagCategory",
   "deleteTag",
   "removeTag",
   "deleteSelection",
@@ -816,8 +820,36 @@ export const useCanvas = create<CanvasState>((set, get) => guardEdits({
   },
 
   setTagKind: async (id, kind) => {
-    const tag = await getRepo().updateTag(id, { kind });
-    set({ tags: get().tags.map((t) => (t.id === id ? { ...t, kind: tag.kind } : t)) });
+    const tag = await getRepo().updateTag(id, { kind, category_key: null });
+    set({
+      tags: get().tags.map((t) =>
+        t.id === id ? { ...t, kind: tag.kind, category_key: tag.category_key ?? null } : t,
+      ),
+    });
+  },
+
+  setTagCategory: async (id, tabId) => {
+    const builtin = isBuiltinTabId(tabId);
+    const kind: Tag["kind"] = builtin ? tabId : "free";
+    const category_key = builtin ? null : tabId;
+    const before = get().tags.find((t) => t.id === id);
+    if (!before) return;
+    if (before.kind === kind && (before.category_key ?? null) === category_key) return;
+    set({
+      tags: get().tags.map((t) => (t.id === id ? { ...t, kind, category_key } : t)),
+    });
+    try {
+      const tag = await getRepo().updateTag(id, { kind, category_key });
+      set({
+        tags: get().tags.map((t) =>
+          t.id === id ? { ...t, kind: tag.kind, category_key: tag.category_key ?? null } : t,
+        ),
+      });
+    } catch (err) {
+      set({ tags: get().tags.map((t) => (t.id === id ? before : t)) });
+      console.error("[canvas] setTagCategory failed", err);
+      toast.error(S.tagExists);
+    }
   },
 
   deleteTag: async (id) => {
